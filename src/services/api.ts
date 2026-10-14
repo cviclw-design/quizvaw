@@ -18,11 +18,8 @@ export interface PublicHomeData {
     seal_text: string;
     logo_url: string;
     has_signature: boolean;
-    signature_photo?: string | null;
     quiz_seconds: number;
     quiz_count: number;
-    slogan_hindi?: string;
-    slogan_english?: string;
   };
 }
 
@@ -51,6 +48,21 @@ export interface QuizStartData {
   done?: boolean;
 }
 
+export interface LeaderboardEntry {
+  rank: number;
+  pf_masked: string;
+  pf_full?: string;
+  name: string;
+  department: string;
+  unit: string;
+  designation: string;
+  score: number;
+  max_score: number;
+  time_seconds: number;
+  time_formatted: string;
+  submitted_at: string;
+}
+
 export interface CertificateData {
   certificate_no: string;
   name: string;
@@ -67,8 +79,6 @@ export interface CertificateData {
   signature_photo: string | null;
   seal_text: string;
   logo_url: string;
-  slogan_hindi?: string;
-  slogan_english?: string;
 }
 
 export interface AdminQuestionItem {
@@ -94,54 +104,7 @@ export interface AdminSettingsData {
   logo_url: string;
   quiz_seconds: number;
   quiz_count: number;
-  slogan_hindi?: string;
-  slogan_english?: string;
   updated_at: string;
-}
-
-export interface LiveLeaderboardEntry {
-  rank: number;
-  id: string;
-  pf: string;
-  name: string;
-  designation: string;
-  department: string;
-  score: number;
-  correctCount: number;
-  totalTimeTaken: number;
-  lastPointsAwarded?: number;
-  lastTimeTaken?: number;
-}
-
-export interface LiveQuizPublicState {
-  ok: boolean;
-  status: 'idle' | 'lobby' | 'question' | 'review' | 'ended';
-  sessionCode: string;
-  timerSeconds: number;
-  questionCount: number;
-  currentIndex: number;
-  questionStartTime: number;
-  questionEndTime: number;
-  participantCount: number;
-  activeQuestion: {
-    id: number;
-    index: number;
-    total: number;
-    question: string;
-    options: string[];
-    department?: string;
-    timerSeconds: number;
-    startTime: number;
-    endTime: number;
-  } | null;
-  reviewData: {
-    index: number;
-    correctIndex: number;
-    optionCounts: [number, number, number, number];
-  } | null;
-  leaderboard: LiveLeaderboardEntry[];
-  sloganHindi: string;
-  sloganEnglish: string;
 }
 
 class ApiService {
@@ -236,6 +199,19 @@ class ApiService {
 
   public async getCertificate(pf: string) {
     return this.request<{ ok: boolean; certificate: CertificateData }>(`/certificate?pf=${encodeURIComponent(pf)}`, {
+      method: 'GET'
+    });
+  }
+
+  public async getLeaderboard(department?: string, limit?: number) {
+    const dept = department && department !== 'All' ? `department=${encodeURIComponent(department)}&` : '';
+    const lim = limit ? `limit=${limit}&` : '';
+    return this.request<{
+      ok: boolean;
+      department: string;
+      total_participants: number;
+      leaderboard: LeaderboardEntry[];
+    }>(`/leaderboard?${dept}${lim}`, {
       method: 'GET'
     });
   }
@@ -391,99 +367,6 @@ class ApiService {
     return this.request<{ ok: boolean; message: string }>('/admin/change_password', {
       method: 'POST',
       body: JSON.stringify({ current, next })
-    });
-  }
-
-  // --- Live Quiz APIs ---
-  public async getLiveState(): Promise<LiveQuizPublicState> {
-    return this.request<LiveQuizPublicState>('/live/state', { method: 'GET' });
-  }
-
-  public async joinLiveQuiz(payload: {
-    pf: string;
-    name: string;
-    designation: string;
-    mobile: string;
-    department: string;
-    unit?: string;
-  }) {
-    return this.request<{
-      ok: boolean;
-      participant: any;
-      state: LiveQuizPublicState;
-    }>('/live/join', {
-      method: 'POST',
-      body: JSON.stringify(payload)
-    });
-  }
-
-  public async submitLiveAnswer(pf: string, selectedOption: number, clientTimeTaken: number) {
-    return this.request<{
-      ok: boolean;
-      points?: number;
-      isCorrect?: boolean;
-      timeTaken?: number;
-      error?: string;
-    }>('/live/submit', {
-      method: 'POST',
-      body: JSON.stringify({ pf, selectedOption, clientTimeTaken })
-    });
-  }
-
-  public async getLiveLeaderboard(): Promise<{ ok: boolean; leaderboard: LiveLeaderboardEntry[] }> {
-    return this.request<{ ok: boolean; leaderboard: LiveLeaderboardEntry[] }>('/live/leaderboard', {
-      method: 'GET'
-    });
-  }
-
-  public async adminStartLiveLobby(opts?: { timerSeconds?: number; questionCount?: number; department?: string }) {
-    return this.request<LiveQuizPublicState>('/live/admin/start_lobby', {
-      method: 'POST',
-      body: JSON.stringify(opts || {})
-    });
-  }
-
-  public async adminSetLiveTimer(timerSeconds: number) {
-    return this.request<{ ok: boolean; timerSeconds: number }>('/live/admin/set_timer', {
-      method: 'POST',
-      body: JSON.stringify({ timerSeconds })
-    });
-  }
-
-  public async adminStartLiveQuestion(questionIndex?: number) {
-    return this.request<LiveQuizPublicState>('/live/admin/start_question', {
-      method: 'POST',
-      body: JSON.stringify({ questionIndex })
-    });
-  }
-
-  public async adminRevealLiveAnswer() {
-    return this.request<LiveQuizPublicState>('/live/admin/reveal_answer', {
-      method: 'POST'
-    });
-  }
-
-  public async adminNextLiveQuestion() {
-    return this.request<LiveQuizPublicState>('/live/admin/next_question', {
-      method: 'POST'
-    });
-  }
-
-  public async adminEndLiveQuiz() {
-    return this.request<LiveQuizPublicState>('/live/admin/end_quiz', {
-      method: 'POST'
-    });
-  }
-
-  public async adminResetLiveQuiz() {
-    return this.request<LiveQuizPublicState>('/live/admin/reset', {
-      method: 'POST'
-    });
-  }
-
-  public async adminGetLiveState() {
-    return this.request<any>('/live/admin/state', {
-      method: 'GET'
     });
   }
 }

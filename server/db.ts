@@ -705,6 +705,68 @@ class Database {
     }).sort((a, b) => b.participant.id - a.participant.id);
   }
 
+  public getLeaderboard(department?: string): LeaderboardEntry[] {
+    const submittedAttempts = this.data.attempts.filter(a => a.status === 'submitted' && a.score !== null);
+    
+    const entries = submittedAttempts.map(att => {
+      const p = this.data.participants.find(pt => pt.id === att.participant_id);
+      if (!p) return null;
+      if (department && department !== 'All' && p.department !== department) return null;
+
+      // Calculate time taken in seconds
+      let timeSec = 0;
+      if (att.started_at && att.submitted_at) {
+        const start = new Date(att.started_at).getTime();
+        const end = new Date(att.submitted_at).getTime();
+        timeSec = Math.max(1, Math.round((end - start) / 1000));
+      } else {
+        timeSec = 300;
+      }
+
+      const mins = Math.floor(timeSec / 60);
+      const secs = timeSec % 60;
+      const timeFormatted = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+
+      const maskedPf = p.pf_no.length > 4 ? `XXXX${p.pf_no.slice(-4)}` : p.pf_no;
+
+      return {
+        rank: 0,
+        pf_masked: maskedPf,
+        pf_full: p.pf_no,
+        name: p.name,
+        department: p.department,
+        unit: p.unit_name,
+        designation: p.designation,
+        score: att.score || 0,
+        max_score: att.max_score || 20,
+        time_seconds: timeSec,
+        time_formatted: timeFormatted,
+        submitted_at: att.submitted_at || ''
+      };
+    }).filter(Boolean) as LeaderboardEntry[];
+
+    // Timing factor sorting:
+    // 1. Higher score first
+    // 2. Lower time taken (seconds) first (faster speed wins ties!)
+    // 3. Earlier submitted_at timestamp first
+    entries.sort((a, b) => {
+      if (b.score !== a.score) {
+        return b.score - a.score;
+      }
+      if (a.time_seconds !== b.time_seconds) {
+        return a.time_seconds - b.time_seconds;
+      }
+      return new Date(a.submitted_at).getTime() - new Date(b.submitted_at).getTime();
+    });
+
+    // Assign ranks
+    entries.forEach((e, i) => {
+      e.rank = i + 1;
+    });
+
+    return entries;
+  }
+
   public getDashboardCounts() {
     return {
       questions: this.data.questions.length,
@@ -731,6 +793,21 @@ class Database {
       rows: logs.slice(0, limit)
     };
   }
+}
+
+export interface LeaderboardEntry {
+  rank: number;
+  pf_masked: string;
+  pf_full: string;
+  name: string;
+  department: string;
+  unit: string;
+  designation: string;
+  score: number;
+  max_score: number;
+  time_seconds: number;
+  time_formatted: string;
+  submitted_at: string;
 }
 
 export const db = new Database();

@@ -6,7 +6,7 @@
       "password_hash": "ClwVaw@2026",
       "display_name": "Sugind Surendran",
       "must_change": false,
-      "created_at": "2026-10-14 07:31:45"
+      "created_at": "2026-10-14 11:52:55"
     },
     {
       "id": 2,
@@ -14,7 +14,7 @@
       "password_hash": "ClwVaw@2026",
       "display_name": "Sugind Surendran",
       "must_change": false,
-      "created_at": "2026-10-14 07:31:45"
+      "created_at": "2026-10-14 11:52:55"
     }
   ],
   "settings": {
@@ -26,7 +26,7 @@
     "logo_url": "https://raw.githubusercontent.com/swrvaw/swrvaw.github.io/gh-pages/static/media/logo.8b9ced028d0a93767ec0.png",
     "quiz_seconds": 45,
     "quiz_count": 20,
-    "updated_at": "2026-10-14 07:31:45"
+    "updated_at": "2026-10-14 11:52:55"
   },
   "questions": [
     {
@@ -40,7 +40,7 @@
       "correct_index": 1,
       "source": "sample",
       "sort_order": 1,
-      "created_at": "2026-10-14 07:31:45"
+      "created_at": "2026-10-14 11:52:55"
     },
     {
       "id": 2,
@@ -53,7 +53,7 @@
       "correct_index": 1,
       "source": "sample",
       "sort_order": 2,
-      "created_at": "2026-10-14 07:31:45"
+      "created_at": "2026-10-14 11:52:55"
     },
     {
       "id": 3,
@@ -66,7 +66,7 @@
       "correct_index": 1,
       "source": "sample",
       "sort_order": 3,
-      "created_at": "2026-10-14 07:31:45"
+      "created_at": "2026-10-14 11:52:55"
     },
     {
       "id": 4,
@@ -79,7 +79,7 @@
       "correct_index": 0,
       "source": "sample",
       "sort_order": 4,
-      "created_at": "2026-10-14 07:31:45"
+      "created_at": "2026-10-14 11:52:55"
     },
     {
       "id": 5,
@@ -92,7 +92,7 @@
       "correct_index": 1,
       "source": "sample",
       "sort_order": 5,
-      "created_at": "2026-10-14 07:31:45"
+      "created_at": "2026-10-14 11:52:55"
     },
     {
       "id": 6,
@@ -105,7 +105,7 @@
       "correct_index": 1,
       "source": "sample",
       "sort_order": 6,
-      "created_at": "2026-10-14 07:31:45"
+      "created_at": "2026-10-14 11:52:55"
     },
     {
       "id": 7,
@@ -118,7 +118,7 @@
       "correct_index": 0,
       "source": "sample",
       "sort_order": 7,
-      "created_at": "2026-10-14 07:31:45"
+      "created_at": "2026-10-14 11:52:55"
     },
     {
       "id": 8,
@@ -131,7 +131,7 @@
       "correct_index": 0,
       "source": "sample",
       "sort_order": 8,
-      "created_at": "2026-10-14 07:31:45"
+      "created_at": "2026-10-14 11:52:55"
     },
     {
       "id": 9,
@@ -144,7 +144,7 @@
       "correct_index": 1,
       "source": "sample",
       "sort_order": 9,
-      "created_at": "2026-10-14 07:31:45"
+      "created_at": "2026-10-14 11:52:55"
     },
     {
       "id": 10,
@@ -157,7 +157,7 @@
       "correct_index": 1,
       "source": "sample",
       "sort_order": 10,
-      "created_at": "2026-10-14 07:31:45"
+      "created_at": "2026-10-14 11:52:55"
     },
     {
       "id": 11,
@@ -170,7 +170,7 @@
       "correct_index": 1,
       "source": "sample",
       "sort_order": 11,
-      "created_at": "2026-10-14 07:31:45"
+      "created_at": "2026-10-14 11:52:55"
     },
     {
       "id": 12,
@@ -183,7 +183,7 @@
       "correct_index": 1,
       "source": "sample",
       "sort_order": 12,
-      "created_at": "2026-10-14 07:31:45"
+      "created_at": "2026-10-14 11:52:55"
     },
     {
       "id": 13,
@@ -196,7 +196,7 @@
       "correct_index": 1,
       "source": "sample",
       "sort_order": 13,
-      "created_at": "2026-10-14 07:31:45"
+      "created_at": "2026-10-14 11:52:55"
     },
     {
       "id": 14,
@@ -209,7 +209,7 @@
       "correct_index": 1,
       "source": "sample",
       "sort_order": 14,
-      "created_at": "2026-10-14 07:31:45"
+      "created_at": "2026-10-14 11:52:55"
     },
     {
       "id": 15,
@@ -222,7 +222,7 @@
       "correct_index": 1,
       "source": "sample",
       "sort_order": 15,
-      "created_at": "2026-10-14 07:31:45"
+      "created_at": "2026-10-14 11:52:55"
     },
     {
       "id": 16,
@@ -235,7 +235,7 @@
       "correct_index": 1,
       "source": "sample",
       "sort_order": 16,
-      "created_at": "2026-10-14 07:31:45"
+      "created_at": "2026-10-14 11:52:55"
     },
     {
       "id": 17,
@@ -248,7 +248,7 @@
       "correct_index": 1,
       "source": "sample",
       "sort_order": 17,
-      "created_at": "2026-10-14 07:31:45"
+      "created_at": "2026-10-14 11:52:55"
     },
     {
       "id": 18,
@@ -261,7 +261,7 @@
       "correct_index": 1,
       "source": "sample",
       "sort_order": 18,
-      "created_at": "2026-10-14 07:31:45"
+      "created_at": "2026-10-14 11:52:55"
     },
     {
       "id": 19,
@@ -274,7 +274,7 @@
       "correct_index": 1,
       "source": "sample",
       "sort_order": 19,
-      "created_at": "2026-10-14 07:31:45"
+      "created_at": "2026-10-14 11:52:55"
     },
     {
       "id": 20,
@@ -287,7 +287,7 @@
       "correct_index": 0,
       "source": "sample",
       "sort_order": 20,
-      "created_at": "2026-10-14 07:31:45"
+      "created_at": "2026-10-14 11:52:55"
     }
   ],
   "schedules": [
@@ -295,92 +295,92 @@
       "id": 1,
       "department": "Personnel",
       "starts_at": "2024-01-01 00:00:00",
-      "ends_at": "2026-11-16 23:59:00",
-      "updated_at": "2026-10-14 07:31:45"
+      "ends_at": "2035-12-31 23:59:59",
+      "updated_at": "2026-10-14 11:52:55"
     },
     {
       "id": 2,
       "department": "Accounts",
       "starts_at": "2024-01-01 00:00:00",
-      "ends_at": "2026-11-16 23:59:00",
-      "updated_at": "2026-10-14 07:31:45"
+      "ends_at": "2035-12-31 23:59:59",
+      "updated_at": "2026-10-14 11:52:55"
     },
     {
       "id": 3,
       "department": "Stores",
       "starts_at": "2024-01-01 00:00:00",
-      "ends_at": "2026-11-16 23:59:00",
-      "updated_at": "2026-10-14 07:31:45"
+      "ends_at": "2035-12-31 23:59:59",
+      "updated_at": "2026-10-14 11:52:55"
     },
     {
       "id": 4,
       "department": "Electrical",
       "starts_at": "2024-01-01 00:00:00",
-      "ends_at": "2026-11-16 23:59:00",
-      "updated_at": "2026-10-14 07:31:45"
+      "ends_at": "2035-12-31 23:59:59",
+      "updated_at": "2026-10-14 11:52:55"
     },
     {
       "id": 5,
       "department": "Mechanical",
       "starts_at": "2024-01-01 00:00:00",
-      "ends_at": "2026-11-16 23:59:00",
-      "updated_at": "2026-10-14 07:31:45"
+      "ends_at": "2035-12-31 23:59:59",
+      "updated_at": "2026-10-14 11:52:55"
     },
     {
       "id": 6,
       "department": "Security (RPF)",
       "starts_at": "2024-01-01 00:00:00",
-      "ends_at": "2026-11-16 23:59:00",
-      "updated_at": "2026-10-14 07:31:45"
+      "ends_at": "2035-12-31 23:59:59",
+      "updated_at": "2026-10-14 11:52:55"
     },
     {
       "id": 7,
       "department": "Signal & Telecom",
       "starts_at": "2024-01-01 00:00:00",
-      "ends_at": "2026-11-16 23:59:00",
-      "updated_at": "2026-10-14 07:31:45"
+      "ends_at": "2035-12-31 23:59:59",
+      "updated_at": "2026-10-14 11:52:55"
     },
     {
       "id": 8,
       "department": "Engineering",
       "starts_at": "2024-01-01 00:00:00",
-      "ends_at": "2026-11-16 23:59:00",
-      "updated_at": "2026-10-14 07:31:45"
+      "ends_at": "2035-12-31 23:59:59",
+      "updated_at": "2026-10-14 11:52:55"
     },
     {
       "id": 9,
       "department": "Traffic - Commercial & Operating",
       "starts_at": "2024-01-01 00:00:00",
-      "ends_at": "2026-11-16 23:59:00",
-      "updated_at": "2026-10-14 07:31:45"
+      "ends_at": "2035-12-31 23:59:59",
+      "updated_at": "2026-10-14 11:52:55"
     },
     {
       "id": 10,
       "department": "Civil Engineering",
       "starts_at": "2024-01-01 00:00:00",
-      "ends_at": "2026-11-16 23:59:00",
-      "updated_at": "2026-10-14 07:31:45"
+      "ends_at": "2035-12-31 23:59:59",
+      "updated_at": "2026-10-14 11:52:55"
     },
     {
       "id": 11,
       "department": "Medical",
       "starts_at": "2024-01-01 00:00:00",
-      "ends_at": "2026-11-16 23:59:00",
-      "updated_at": "2026-10-14 07:31:45"
+      "ends_at": "2035-12-31 23:59:59",
+      "updated_at": "2026-10-14 11:52:55"
     },
     {
       "id": 12,
       "department": "General Administration",
       "starts_at": "2024-01-01 00:00:00",
-      "ends_at": "2026-11-16 23:59:00",
-      "updated_at": "2026-10-14 07:31:45"
+      "ends_at": "2035-12-31 23:59:59",
+      "updated_at": "2026-10-14 11:52:55"
     },
     {
       "id": 13,
       "department": "Rajbhasha",
       "starts_at": "2024-01-01 00:00:00",
-      "ends_at": "2026-11-16 23:59:00",
-      "updated_at": "2026-10-14 07:31:45"
+      "ends_at": "2035-12-31 23:59:59",
+      "updated_at": "2026-10-14 11:52:55"
     }
   ],
   "participants": [],
@@ -388,23 +388,23 @@
   "audit_log": [
     {
       "id": 3,
-      "created_at": "2026-10-14 07:42:04",
-      "actor": "admin",
-      "action": "admin_logout",
-      "detail": "Logout",
-      "ip": "103.208.233.195"
-    },
-    {
-      "id": 2,
-      "created_at": "2026-10-14 07:41:49",
+      "created_at": "2026-10-14 13:08:14",
       "actor": "admin",
       "action": "admin_login",
       "detail": "Login successful",
-      "ip": "103.208.233.195"
+      "ip": "103.208.233.234"
+    },
+    {
+      "id": 2,
+      "created_at": "2026-10-14 12:44:49",
+      "actor": "admin",
+      "action": "admin_login",
+      "detail": "Login successful",
+      "ip": "103.208.233.234"
     },
     {
       "id": 1,
-      "created_at": "2026-10-14 07:31:45",
+      "created_at": "2026-10-14 11:52:55",
       "actor": "system",
       "action": "init_database",
       "detail": "Database initialized with official CLW VAW 2026 questions bank and settings",

@@ -1,8 +1,24 @@
-import React, { useRef, useState, useEffect } from 'react';
-import { CrestEmblem, SealStamp } from './CrestEmblem';
-import { Printer, Download, ArrowLeft, CheckCircle2, ShieldCheck, Award } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import {
+  Printer,
+  Download,
+  ArrowLeft,
+  CheckCircle2,
+  HardDrive,
+  RefreshCw,
+  AlertCircle,
+  Share2,
+  Shield,
+  Users,
+  Settings,
+  Handshake,
+  Sprout
+} from 'lucide-react';
+import { ShareModal } from './ShareModal';
+import { DriveModal } from './DriveModal';
+import { googleSignIn, getAccessToken } from '../services/googleAuth';
+import { DriveService } from '../services/driveService';
 import { soundEffects } from '../utils/audio';
-import { api } from '../services/api';
 
 interface CertificateProps {
   type: 'pledge' | 'quiz';
@@ -13,12 +29,6 @@ interface CertificateProps {
   certificateId: string;
   quizScore?: number;
   totalQuestions?: number;
-  signaturePhoto?: string | null;
-  cvoName?: string;
-  cvoDesignation?: string;
-  cvoOrganization?: string;
-  sloganHindi?: string;
-  sloganEnglish?: string;
   onBack?: () => void;
 }
 
@@ -31,38 +41,14 @@ export const CertificateView: React.FC<CertificateProps> = ({
   certificateId,
   quizScore,
   totalQuestions,
-  signaturePhoto: initialSig,
-  cvoName: initialCvoName,
-  cvoDesignation: initialCvoDesig,
-  cvoOrganization: initialCvoOrg,
-  sloganHindi: initialSloganHi,
-  sloganEnglish: initialSloganEn,
   onBack
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  // Fallback to fetch system settings if props were omitted
-  const [signaturePhoto, setSignaturePhoto] = useState<string | null>(initialSig || null);
-  const [cvoName, setCvoName] = useState<string>(initialCvoName || 'Sugind Surendran');
-  const [cvoDesignation, setCvoDesignation] = useState<string>(initialCvoDesig || 'SDGM & Chief Vigilance Officer');
-  const [cvoOrganization, setCvoOrganization] = useState<string>(initialCvoOrg || 'Chittaranjan Locomotive Works, Chittaranjan');
-  const [sloganHindi, setSloganHindi] = useState<string>(initialSloganHi || 'सत्यनिष्ठा की संस्कृति से राष्ट्र की समृद्धि');
-  const [sloganEnglish, setSloganEnglish] = useState<string>(initialSloganEn || "Culture of Integrity for Nation's Prosperity");
-
-  useEffect(() => {
-    if (!initialSig) {
-      api.getHome().then(res => {
-        if (res.ok && res.settings) {
-          if (res.settings.signature_photo) setSignaturePhoto(res.settings.signature_photo);
-          if (res.settings.cvo_name) setCvoName(res.settings.cvo_name);
-          if (res.settings.cvo_designation) setCvoDesignation(res.settings.cvo_designation);
-          if (res.settings.cvo_organization) setCvoOrganization(res.settings.cvo_organization);
-          if (res.settings.slogan_hindi) setSloganHindi(res.settings.slogan_hindi);
-          if (res.settings.slogan_english) setSloganEnglish(res.settings.slogan_english);
-        }
-      }).catch(() => {});
-    }
-  }, [initialSig]);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [driveModalOpen, setDriveModalOpen] = useState(false);
+  const [savingToDrive, setSavingToDrive] = useState(false);
+  const [driveSavedUrl, setDriveSavedUrl] = useState<string | null>(null);
+  const [driveError, setDriveError] = useState<string | null>(null);
 
   const handlePrint = () => {
     soundEffects.playClick();
@@ -70,9 +56,9 @@ export const CertificateView: React.FC<CertificateProps> = ({
   };
 
   /**
-   * High-resolution 2000x1414 Landscape Canvas Painter
+   * High-resolution 2000px Canvas painter matching finalpc.jpeg
    */
-  const paintLandscapeCanvas = (): Promise<HTMLCanvasElement> => {
+  const paintCanvas = (): Promise<HTMLCanvasElement> => {
     return new Promise((resolve, reject) => {
       const canvas = canvasRef.current;
       if (!canvas) {
@@ -89,163 +75,254 @@ export const CertificateView: React.FC<CertificateProps> = ({
       const H = canvas.height; // 1414
       ctx.clearRect(0, 0, W, H);
 
-      // Cream Parchment Background
+      // Cream/Parchment background
       const bgGrad = ctx.createLinearGradient(0, 0, W, H);
-      bgGrad.addColorStop(0, '#fffefb');
-      bgGrad.addColorStop(1, '#fff8ee');
+      bgGrad.addColorStop(0, '#ffffff');
+      bgGrad.addColorStop(0.5, '#fffdf8');
+      bgGrad.addColorStop(1, '#fef9ed');
       ctx.fillStyle = bgGrad;
       ctx.fillRect(0, 0, W, H);
 
-      // Double Outer Border (Navy & Gold)
+      // Outer Gold Double Border with Corner Flourishes
+      ctx.strokeStyle = '#c59b27';
+      ctx.lineWidth = 12;
+      ctx.strokeRect(30, 30, W - 60, H - 60);
+
       ctx.strokeStyle = '#071a3a';
-      ctx.lineWidth = 26;
-      ctx.strokeRect(34, 34, W - 68, H - 68);
+      ctx.lineWidth = 4;
+      ctx.strokeRect(48, 48, W - 96, H - 96);
 
       ctx.strokeStyle = '#d4a017';
-      ctx.lineWidth = 8;
-      ctx.strokeRect(60, 60, W - 120, H - 120);
+      ctx.lineWidth = 2;
+      ctx.strokeRect(56, 56, W - 112, H - 112);
 
-      // Indian Tricolor Stripe Accent
-      ctx.fillStyle = '#ff8a1e';
-      ctx.fillRect(76, 76, W - 152, 12);
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(76, 88, W - 152, 8);
-      ctx.fillStyle = '#128a45';
-      ctx.fillRect(76, 96, W - 152, 12);
-
-      // Ornate Corner Accents
-      drawCornerAccent(ctx, 80, 110);
-      drawCornerAccent(ctx, W - 80, 110, true, false);
-      drawCornerAccent(ctx, 80, H - 80, false, true);
-      drawCornerAccent(ctx, W - 80, H - 80, true, true);
-
-      // Central Crest / Watermark
-      ctx.save();
-      ctx.globalAlpha = 0.05;
+      // Left Column Text Banner ("INTEGRITY BUILDS TRUST...")
       ctx.fillStyle = '#071a3a';
-      ctx.beginPath();
-      ctx.arc(W / 2, H / 2, 320, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-
-      // Top Header
-      ctx.textAlign = 'center';
-      ctx.fillStyle = '#8a6a12';
-      ctx.font = '800 24px Outfit, sans-serif';
-      ctx.fillText('CENTRAL VIGILANCE COMMISSION  ·  INDIAN RAILWAYS', W / 2, 160);
-
-      ctx.fillStyle = '#071a3a';
-      ctx.font = '800 46px Georgia, serif';
-      ctx.fillText('Chittaranjan Locomotive Works', W / 2, 215);
-
-      ctx.font = '600 22px Outfit, sans-serif';
-      ctx.fillStyle = '#556677';
-      ctx.fillText('Vigilance Department  ·  Chittaranjan', W / 2, 250);
-
-      // VAW Ribbon
-      ctx.beginPath();
-      roundRect(ctx, W / 2 - 380, 280, 760, 48, 24);
-      ctx.fillStyle = '#071a3a';
-      ctx.fill();
-
-      ctx.fillStyle = '#ffffff';
-      ctx.font = '800 20px Outfit, sans-serif';
-      ctx.fillText('VIGILANCE AWARENESS WEEK 2026', W / 2, 312);
-
-      // Current Year Official Slogan
-      ctx.fillStyle = '#8a6a12';
-      ctx.font = '700 24px Outfit, sans-serif';
-      ctx.fillText(`${sloganHindi}  ·  ${sloganEnglish}`, W / 2, 375);
-
-      // Certificate Title
-      ctx.fillStyle = '#071a3a';
-      ctx.font = '800 60px Georgia, serif';
-      ctx.fillText(type === 'pledge' ? 'Certificate of Integrity Pledge' : 'Certificate of Vigilance Merit', W / 2, 455);
-
-      // Body Statement
-      ctx.fillStyle = '#445566';
-      ctx.font = '500 26px Outfit, sans-serif';
-      ctx.fillText('This is to solemnly certify that', W / 2, 535);
-
-      // Recipient Name
-      ctx.fillStyle = '#9a3412';
-      ctx.font = 'italic 64px Georgia, serif';
-      ctx.fillText(recipientName || 'Valued Officer', W / 2, 620);
-
-      // Designation & Organization
-      ctx.fillStyle = '#071a3a';
-      ctx.font = '700 24px Outfit, sans-serif';
-      const meta = [designation, organization || 'Chittaranjan Locomotive Works'].filter(Boolean).join('  ·  ');
-      ctx.fillText(meta, W / 2, 675);
-
-      // Pledge Declaration
-      ctx.fillStyle = '#334455';
-      ctx.font = '500 22px Outfit, sans-serif';
-      const pledgeStatement = 'has solemnly taken the official Integrity Pledge, upholding the highest standards of probity, transparency, and ethical governance, and pledging to lead by personal example in the collective fight against corruption in the service of the Nation.';
-      wrapText(ctx, pledgeStatement, W / 2, 735, 1480, 32);
-
-      // Verification Bar
-      ctx.beginPath();
-      roundRect(ctx, 360, 890, 1280, 95, 18);
-      ctx.fillStyle = '#071a3a';
-      ctx.fill();
-
-      ctx.fillStyle = '#ffffff';
-      ctx.font = '700 22px Outfit, sans-serif';
+      ctx.font = '800 22px Outfit, sans-serif';
       ctx.textAlign = 'left';
-      ctx.fillText(`Certificate ID:  ${certificateId}`, 400, 948);
-      ctx.fillText(`Category:  Public Servant Integrity Commitment`, 850, 948);
-      ctx.fillText(`Date:  ${date}`, 1420, 948);
+      ctx.fillText('INTEGRITY', 80, 120);
+      ctx.fillText('BUILDS', 80, 148);
+      ctx.fillText('TRUST', 80, 176);
+      ctx.fillStyle = '#1d4ed8';
+      ctx.fillText('STRONG', 80, 215);
+      ctx.fillText('RAILWAYS', 80, 243);
+      ctx.fillText('STRONGER', 80, 271);
+      ctx.fillText('INDIA', 80, 299);
 
-      // Official Stamp on bottom left
-      drawOfficialStamp(ctx, 320, 1180, certificateId, date);
+      // Top Right Header Block: VAW 2026 & "PROBITY FOR PROSPERITY"
+      ctx.fillStyle = '#071a3a';
+      ctx.font = '800 32px Georgia, serif';
+      ctx.textAlign = 'right';
+      ctx.fillText('VIGILANCE', W - 90, 115);
+      ctx.fillText('AWARENESS', W - 90, 150);
+      ctx.fillStyle = '#1e3a8a';
+      ctx.fillText('WEEK 2026', W - 90, 185);
 
-      // Right: SDGM & CVO Signature Block
-      if (signaturePhoto) {
-        const sigImg = new Image();
-        sigImg.crossOrigin = 'anonymous';
-        sigImg.onload = () => {
-          ctx.drawImage(sigImg, 1340, 1070, 240, 85);
-          drawSignText();
-        };
-        sigImg.onerror = () => {
-          drawScriptFallback();
-          drawSignText();
-        };
-        sigImg.src = signaturePhoto;
-      } else {
-        drawScriptFallback();
-        drawSignText();
-      }
+      // Red pill box "PROBITY FOR PROSPERITY"
+      ctx.beginPath();
+      roundRect(ctx, W - 410, 205, 320, 42, 8);
+      ctx.fillStyle = '#a81c1c';
+      ctx.fill();
 
-      function drawScriptFallback() {
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '800 18px Outfit, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('PROBITY FOR PROSPERITY', W - 250, 232);
+
+      ctx.fillStyle = '#334455';
+      ctx.font = '700 14px Outfit, sans-serif';
+      ctx.fillText('INTEGRITY  |  TRANSPARENCY  |  SELF-RELIANCE', W - 250, 268);
+
+      // Load Indian Railways Logo in Top Center
+      const logoImg = new Image();
+      logoImg.crossOrigin = 'anonymous';
+      logoImg.onload = () => finishCanvasPaint(logoImg);
+      logoImg.onerror = () => finishCanvasPaint(null);
+      logoImg.src = 'https://raw.githubusercontent.com/swrvaw/swrvaw.github.io/gh-pages/static/media/logo.8b9ced028d0a93767ec0.png';
+
+      function finishCanvasPaint(logo: HTMLImageElement | null) {
         if (!ctx) return;
-        ctx.textAlign = 'center';
-        ctx.fillStyle = '#071a3a';
-        ctx.font = 'italic 46px Georgia, serif';
-        ctx.fillText(cvoName || 'Sugind Surendran', 1460, 1130);
-      }
 
-      function drawSignText() {
-        if (!ctx || !canvas) return;
-        ctx.strokeStyle = '#d4a017';
-        ctx.lineWidth = 2;
+        if (logo) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(W / 2, 140, 60, 0, Math.PI * 2);
+          ctx.fillStyle = '#ffffff';
+          ctx.fill();
+          ctx.clip();
+          ctx.drawImage(logo, W / 2 - 60, 80, 120, 120);
+          ctx.restore();
+
+          ctx.strokeStyle = '#c59b27';
+          ctx.lineWidth = 4;
+          ctx.beginPath();
+          ctx.arc(W / 2, 140, 62, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+
+        // Center Title
+        ctx.fillStyle = '#071a3a';
+        ctx.font = '800 40px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('चित्तरंजन लोकोमोटिव वर्क्स', W / 2, 235);
+
+        ctx.font = '800 42px Georgia, serif';
+        ctx.fillText('CHITTARANJAN LOCOMOTIVE WORKS', W / 2, 280);
+
+        ctx.font = '700 22px Outfit, sans-serif';
+        ctx.fillStyle = '#475569';
+        ctx.fillText('भारतीय रेल  /  INDIAN RAILWAYS', W / 2, 312);
+
+        // VIGILANCE DEPARTMENT Badge
         ctx.beginPath();
-        ctx.moveTo(1280, 1165);
-        ctx.lineTo(1640, 1165);
+        roundRect(ctx, W / 2 - 260, 332, 520, 48, 24);
+        ctx.fillStyle = '#072b42';
+        ctx.fill();
+        ctx.strokeStyle = '#d4a017';
+        ctx.lineWidth = 3;
         ctx.stroke();
 
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '800 24px Outfit, sans-serif';
+        ctx.fillText('VIGILANCE DEPARTMENT', W / 2, 364);
+
+        // Center Golden Swallowtail Ribbon
+        const ribbonY = 430;
+        ctx.save();
+        ctx.shadowColor = 'rgba(0,0,0,0.15)';
+        ctx.shadowBlur = 12;
+        ctx.shadowOffsetY = 6;
+
+        const ribGrad = ctx.createLinearGradient(0, ribbonY, 0, ribbonY + 90);
+        ribGrad.addColorStop(0, '#f2ca65');
+        ribGrad.addColorStop(0.5, '#e5b338');
+        ribGrad.addColorStop(1, '#cb9318');
+
+        ctx.beginPath();
+        roundRect(ctx, W / 2 - 520, ribbonY, 1040, 90, 12);
+        ctx.fillStyle = ribGrad;
+        ctx.fill();
+        ctx.strokeStyle = '#9c6f08';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        ctx.restore();
+
+        // Ribbon Title Text
+        const ribbonTitle = type === 'pledge' ? 'Certificate of Commitment' : 'Certificate of Participation';
+        ctx.fillStyle = '#5c1202';
+        ctx.font = 'italic 700 62px Georgia, serif';
         ctx.textAlign = 'center';
-        ctx.fillStyle = '#111827';
-        ctx.font = '700 22px Outfit, sans-serif';
-        ctx.fillText(cvoName || 'Sugind Surendran', 1460, 1205);
+        ctx.fillText(ribbonTitle, W / 2, ribbonY + 66);
 
-        ctx.fillStyle = '#4b5563';
-        ctx.font = '500 18px Outfit, sans-serif';
-        ctx.fillText(cvoDesignation || 'SDGM & Chief Vigilance Officer', 1460, 1235);
-        ctx.fillText(cvoOrganization || 'Chittaranjan Locomotive Works, Chittaranjan', 1460, 1262);
+        // Subtitle certification
+        ctx.fillStyle = '#1e293b';
+        ctx.font = '500 28px Georgia, serif';
+        ctx.fillText('This is to certify that', W / 2, 570);
 
-        resolve(canvas);
+        // Participant Name Line (Dotted Line)
+        ctx.strokeStyle = '#94a3b8';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6, 6]);
+        ctx.beginPath();
+        ctx.moveTo(W / 2 - 480, 660);
+        ctx.lineTo(W / 2 + 480, 660);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Participant Name
+        ctx.fillStyle = '#071a3a';
+        ctx.font = '800 52px Georgia, serif';
+        ctx.fillText(recipientName, W / 2, 642);
+
+        // Details string
+        const subDetails = [designation, organization].filter(Boolean).join('   ·   ') || 'Valued Participant';
+        ctx.fillStyle = '#0f172a';
+        ctx.font = '700 24px Outfit, sans-serif';
+        ctx.fillText(subDetails, W / 2, 705);
+
+        // Main body text
+        ctx.fillStyle = '#334155';
+        ctx.font = '500 26px Georgia, serif';
+
+        if (type === 'pledge') {
+          ctx.fillText('has taken the Integrity Pledge during', W / 2, 760);
+          ctx.fillStyle = '#800000';
+          ctx.font = '800 32px Georgia, serif';
+          ctx.fillText('Vigilance Awareness Week 2026', W / 2, 808);
+          ctx.fillStyle = '#1e293b';
+          ctx.font = '700 26px Georgia, serif';
+          ctx.fillText('organized by Vigilance Department, Chittaranjan Locomotive Works,', W / 2, 854);
+          ctx.fillStyle = '#475569';
+          ctx.font = '500 22px Outfit, sans-serif';
+          const bodyText = 'and has solemnly committed to uphold the highest standards of honesty, integrity and transparency in all activities towards building a corruption-free India.';
+          wrapText(ctx, bodyText, W / 2, 908, 1200, 32);
+        } else {
+          ctx.fillText('has actively participated in the Quiz Competition organized during', W / 2, 760);
+          ctx.fillStyle = '#800000';
+          ctx.font = '800 32px Georgia, serif';
+          ctx.fillText('Vigilance Awareness Week 2026', W / 2, 808);
+          ctx.fillStyle = '#1e293b';
+          ctx.font = '700 26px Georgia, serif';
+          ctx.fillText('by Vigilance Department, Chittaranjan Locomotive Works.', W / 2, 854);
+          ctx.fillStyle = '#475569';
+          ctx.font = '500 22px Outfit, sans-serif';
+          const bodyText = 'We appreciate your enthusiasm, knowledge and commitment towards promoting integrity, transparency and a corruption-free workplace.';
+          wrapText(ctx, bodyText, W / 2, 908, 1200, 32);
+        }
+
+        // Right side 5 Core Pillars Box
+        drawPillarsBlock(ctx, W - 420, 680);
+
+        // Footer details (Place, Date, CVO Signature)
+        ctx.fillStyle = '#0f172a';
+        ctx.font = '700 24px Outfit, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText(`Place : Chittaranjan`, 120, 1180);
+        ctx.fillText(`Date : ${date}`, 120, 1220);
+
+        // Draw CVO Signature
+        drawScriptSignature();
+        drawSignText();
+
+        function drawScriptSignature() {
+          if (!ctx) return;
+          ctx.strokeStyle = '#071a3a';
+          ctx.lineWidth = 3.5;
+          ctx.beginPath();
+          ctx.moveTo(W - 480, 1140);
+          ctx.bezierCurveTo(W - 500, 1110, W - 460, 1090, W - 440, 1120);
+          ctx.bezierCurveTo(W - 420, 1150, W - 400, 1100, W - 380, 1130);
+          ctx.bezierCurveTo(W - 360, 1160, W - 320, 1120, W - 240, 1145);
+          ctx.stroke();
+
+          ctx.beginPath();
+          ctx.arc(W - 390, 1095, 3.5, 0, Math.PI * 2);
+          ctx.arc(W - 370, 1092, 3.5, 0, Math.PI * 2);
+          ctx.fillStyle = '#071a3a';
+          ctx.fill();
+        }
+
+        function drawSignText() {
+          if (!ctx || !canvas) return;
+          ctx.strokeStyle = '#071a3a';
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.moveTo(W - 520, 1185);
+          ctx.lineTo(W - 180, 1185);
+          ctx.stroke();
+
+          ctx.textAlign = 'center';
+          ctx.fillStyle = '#0f172a';
+          ctx.font = '800 26px Outfit, sans-serif';
+          ctx.fillText('SUGIND SURENDRAN', W - 350, 1220);
+
+          ctx.fillStyle = '#475569';
+          ctx.font = '600 20px Outfit, sans-serif';
+          ctx.fillText('SDGM & CVO', W - 350, 1250);
+          ctx.fillText('Chittaranjan Locomotive Works', W - 350, 1278);
+
+          resolve(canvas);
+        }
       }
     });
   };
@@ -253,189 +330,448 @@ export const CertificateView: React.FC<CertificateProps> = ({
   const handleDownloadPng = async () => {
     soundEffects.playClick();
     try {
-      const canvas = await paintLandscapeCanvas();
+      const canvas = await paintCanvas();
       const a = document.createElement('a');
       a.href = canvas.toDataURL('image/png');
-      a.download = `${certificateId}-pledge.png`;
+      a.download = `${certificateId}-${recipientName.replace(/\s+/g, '_')}.png`;
       a.click();
     } catch (err) {
-      console.error('Failed to download PNG', err);
+      console.error('Download PNG failed', err);
     }
   };
 
+  const handleSaveToDrive = async () => {
+    soundEffects.playClick();
+    setSavingToDrive(true);
+    setDriveError(null);
+    setDriveSavedUrl(null);
+
+    try {
+      let token = await getAccessToken();
+      if (!token) {
+        const authResult = await googleSignIn();
+        if (!authResult) throw new Error('Google Sign-In was cancelled');
+        token = authResult.accessToken;
+      }
+
+      const canvas = await paintCanvas();
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob(b => {
+          if (b) resolve(b);
+          else reject(new Error('Failed to create image blob'));
+        }, 'image/png');
+      });
+
+      const uploaded = await DriveService.saveCertificateToDrive(
+        token,
+        certificateId,
+        certificateId,
+        recipientName,
+        blob
+      );
+
+      soundEffects.playCorrect();
+      setDriveSavedUrl(uploaded.webViewLink || 'https://drive.google.com');
+    } catch (err: unknown) {
+      console.error('Save to Google Drive failed:', err);
+      soundEffects.playIncorrect();
+      setDriveError((err as Error).message || 'Failed to save certificate to Google Drive');
+    } finally {
+      setSavingToDrive(false);
+    }
+  };
+
+  function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  function wrapText(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, max: number, lh: number) {
+    const words = text.split(' ');
+    let line = '';
+    const lines: string[] = [];
+    words.forEach(w => {
+      const t = line ? `${line} ${w}` : w;
+      if (ctx.measureText(t).width > max) {
+        lines.push(line);
+        line = w;
+      } else {
+        line = t;
+      }
+    });
+    lines.push(line);
+    lines.forEach((ln, i) => ctx.fillText(ln, x, y + i * lh));
+  }
+
+  function drawPillarsBlock(ctx: CanvasRenderingContext2D, x: number, y: number) {
+    const items = [
+      { text: 'ZERO CORRUPTION', color: '#1e3a8a' },
+      { text: 'ETHICAL WORK CULTURE', color: '#065f46' },
+      { text: 'TRANSPARENT PROCESSES', color: '#9a3412' },
+      { text: 'ACCOUNTABLE ADMINISTRATION', color: '#1e293b' },
+      { text: 'PROSPEROUS RAILWAYS', color: '#15803d' }
+    ];
+
+    ctx.textAlign = 'left';
+    ctx.font = '800 16px Outfit, sans-serif';
+    items.forEach((item, i) => {
+      ctx.fillStyle = item.color;
+      ctx.fillText(`• ${item.text}`, x, y + i * 36);
+    });
+  }
+
   return (
-    <div className="max-w-6xl mx-auto py-6 px-4">
-      {/* Top Action Toolbar */}
-      <div className="no-print flex flex-wrap items-center justify-between gap-4 mb-6 p-4 bg-white border border-slate-200 rounded-xl shadow-xs">
-        <div className="flex items-center gap-3">
+    <div className="max-w-5xl mx-auto py-6 px-4">
+      {/* Top Action Bar */}
+      <div className="no-print bg-white border border-slate-200 rounded-xl p-4 shadow-xs mb-6 flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+            <span>{type === 'pledge' ? 'Official Integrity Pledge Certificate' : 'Participation Certificate'}</span>
+            <span className="bg-emerald-100 text-emerald-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full border border-emerald-300">
+              Verified Authenticity
+            </span>
+          </h2>
+          <p className="text-xs text-slate-500">
+            Issued under authority of Shri Sugind Surendran, SDGM &amp; CVO, Chittaranjan Locomotive Works.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
           {onBack && (
             <button
               onClick={onBack}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
             >
-              <ArrowLeft className="w-4 h-4" />
+              <ArrowLeft className="w-3.5 h-3.5" />
               <span>Back</span>
             </button>
           )}
-          <div>
-            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-              <span>Official Integrity Pledge Certificate</span>
-              <span className="text-[10px] font-bold uppercase bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full border border-amber-300">
-                Landscape Mode
-              </span>
-            </h3>
-            <p className="text-xs text-slate-500">
-              Verified Certificate ID: <span className="font-mono font-bold text-blue-950">{certificateId}</span>
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2.5">
-          <button
-            onClick={handleDownloadPng}
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-slate-800 bg-amber-400 hover:bg-amber-300 rounded-lg shadow-xs transition-colors cursor-pointer"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>Download PNG (Landscape)</span>
-          </button>
 
           <button
             onClick={handlePrint}
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-blue-950 hover:bg-blue-900 rounded-lg shadow-xs transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-[#071a3a] hover:bg-[#0d2a58] text-white text-xs font-bold rounded-lg shadow-xs transition-colors"
           >
             <Printer className="w-3.5 h-3.5" />
-            <span>Print / Save as PDF (Landscape)</span>
+            <span>Print</span>
+          </button>
+
+          <button
+            onClick={handleDownloadPng}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold rounded-lg shadow-xs transition-colors"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Download PNG</span>
+          </button>
+
+          <button
+            onClick={handleSaveToDrive}
+            disabled={savingToDrive}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg shadow-xs transition-colors"
+            title="Save certificate directly to Google Drive"
+          >
+            {savingToDrive ? (
+              <>
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                <span>Saving to Drive...</span>
+              </>
+            ) : (
+              <>
+                <HardDrive className="w-3.5 h-3.5" />
+                <span>Save to Google Drive</span>
+              </>
+            )}
+          </button>
+
+          <button
+            onClick={() => {
+              soundEffects.playClick();
+              setShareOpen(true);
+            }}
+            className="inline-flex items-center gap-1.5 px-3 py-2 bg-[#ff8a1e] hover:bg-[#e87610] text-[#071a3a] text-xs font-bold rounded-lg shadow-xs transition-colors"
+          >
+            <Share2 className="w-3.5 h-3.5" />
+            <span>Share Link</span>
           </button>
         </div>
       </div>
 
-      {/* Landscape Printable Canvas Frame */}
-      <article className="certificate-print-area relative bg-[#fffefb] border-8 border-[#071a3a] rounded-2xl p-6 sm:p-10 shadow-2xl text-slate-900 overflow-hidden w-full aspect-[1.414/1] flex flex-col justify-between">
-        
-        {/* Inner Gold Border */}
-        <div className="border-4 border-[#d4a017] rounded-xl p-6 sm:p-8 text-center relative bg-gradient-to-b from-white/90 via-amber-50/15 to-amber-50/30 flex-1 flex flex-col justify-between">
+      {/* Google Drive Status Notification */}
+      {driveSavedUrl && (
+        <div className="no-print mb-6 p-4 rounded-xl bg-emerald-50 border border-emerald-300 text-xs text-emerald-950 flex flex-wrap items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+            <div>
+              <strong className="block font-bold">Successfully saved to your Google Drive!</strong>
+              <span>Folder: "CLW Vigilance Awareness Week 2026"</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <a
+              href={driveSavedUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-lg transition-colors"
+            >
+              <span>Open in Google Drive</span>
+            </a>
+            <button
+              onClick={() => setDriveModalOpen(true)}
+              className="px-3 py-1.5 bg-white border border-emerald-300 text-emerald-900 font-semibold rounded-lg hover:bg-emerald-50 transition-colors"
+            >
+              Browse Files
+            </button>
+          </div>
+        </div>
+      )}
+
+      {driveError && (
+        <div className="no-print mb-6 p-3 rounded-xl bg-rose-50 border border-rose-300 text-xs text-rose-900 flex items-center justify-between gap-2 shadow-xs">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+            <span>{driveError}</span>
+          </div>
+          <button
+            onClick={() => setDriveError(null)}
+            className="text-xs font-bold text-rose-700 underline"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {/* Official HTML / Printable Certificate Frame matching finalpc.jpeg */}
+      <article className="certificate-print-area relative bg-[#fffdf8] border-[12px] border-[#c59b27] rounded-3xl p-4 sm:p-8 shadow-2xl text-slate-900 overflow-hidden">
+        <div className="border-2 border-[#071a3a] rounded-2xl p-4 sm:p-8 relative bg-gradient-to-b from-white via-[#fffdfa] to-[#fffbf0] overflow-hidden">
           
-          {/* Top Indian Tricolor Stripe */}
-          <div className="absolute top-2 left-6 right-6 h-2 rounded-full overflow-hidden flex shadow-xs">
-            <div className="flex-1 bg-[#ff8a1e]" />
-            <div className="flex-1 bg-white" />
-            <div className="flex-1 bg-[#128a45]" />
+          {/* Top Row Header: Left Slogan, Center Emblem & Title, Right VAW 2026 Box */}
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center pb-4 border-b border-amber-200/80">
+            
+            {/* Top Left Slogan */}
+            <div className="md:col-span-3 text-left space-y-0.5 hidden sm:block">
+              <div className="text-[11px] sm:text-xs font-extrabold tracking-wider text-[#071a3a] uppercase leading-tight">
+                INTEGRITY BUILDS TRUST
+              </div>
+              <div className="text-[10px] sm:text-[11px] font-bold text-blue-700 uppercase leading-tight">
+                STRONG RAILWAYS STRONGER INDIA
+              </div>
+            </div>
+
+            {/* Top Center Main Header */}
+            <div className="md:col-span-6 text-center flex flex-col items-center">
+              <img
+                src="https://raw.githubusercontent.com/swrvaw/swrvaw.github.io/gh-pages/static/media/logo.8b9ced028d0a93767ec0.png"
+                alt="Indian Railways Emblem"
+                className="w-16 h-16 sm:w-20 sm:h-20 object-contain rounded-full border-2 border-[#c59b27] bg-white p-1 shadow-xs mb-1"
+              />
+              <h1 className="text-lg sm:text-2xl font-extrabold text-[#071a3a] leading-tight">
+                चित्तरंजन लोकोमोटिव वर्क्स
+              </h1>
+              <h2 className="text-base sm:text-xl font-serif font-extrabold text-[#071a3a] leading-tight tracking-wide">
+                CHITTARANJAN LOCOMOTIVE WORKS
+              </h2>
+              <div className="text-xs font-semibold text-slate-600 mb-2">
+                भारतीय रेल / INDIAN RAILWAYS
+              </div>
+              <div className="inline-block px-6 py-1 bg-[#072b42] text-amber-300 border border-[#d4a017] rounded-full text-xs font-extrabold tracking-wider uppercase shadow-xs">
+                VIGILANCE DEPARTMENT
+              </div>
+            </div>
+
+            {/* Top Right VAW 2026 Header */}
+            <div className="md:col-span-3 text-center md:text-right flex flex-col items-center md:items-end">
+              <div className="text-right">
+                <div className="text-sm font-extrabold text-[#071a3a] tracking-wider uppercase">
+                  VIGILANCE
+                </div>
+                <div className="text-sm font-extrabold text-blue-900 tracking-wider uppercase">
+                  AWARENESS WEEK 2026
+                </div>
+              </div>
+              <div className="mt-1 bg-[#a81c1c] text-white px-3 py-1 rounded-md text-[11px] font-bold tracking-wider uppercase shadow-2xs">
+                PROBITY FOR PROSPERITY
+              </div>
+              <div className="text-[9px] font-bold text-slate-600 uppercase tracking-tight mt-1">
+                INTEGRITY | TRANSPARENCY | SELF-RELIANCE
+              </div>
+            </div>
+
           </div>
 
-          {/* Header with Emblem */}
-          <div className="pt-2">
-            <div className="text-[11px] sm:text-xs font-bold tracking-widest text-[#8a6a12] uppercase mb-0.5">
-              CENTRAL VIGILANCE COMMISSION · INDIAN RAILWAYS
+          {/* Central 3D Golden Ribbon */}
+          <div className="my-6 relative text-center">
+            <div className="inline-block relative px-8 py-3.5 bg-gradient-to-r from-[#f2ca65] via-[#e5b338] to-[#cb9318] text-[#5c1202] rounded-xl border-2 border-[#9c6f08] shadow-md transform hover:scale-[1.01] transition-transform">
+              <span className="text-2xl sm:text-4xl font-serif italic font-extrabold tracking-wide drop-shadow-2xs">
+                {type === 'pledge' ? 'Certificate of Commitment' : 'Certificate of Participation'}
+              </span>
             </div>
-            <h1 className="text-xl sm:text-3xl font-serif font-bold text-[#071a3a] leading-tight">
-              Chittaranjan Locomotive Works
-            </h1>
-            <div className="text-xs text-slate-600 font-medium">
-              Vigilance Department · Chittaranjan
-            </div>
+          </div>
 
-            {/* VAW Ribbon */}
-            <div className="my-2.5">
-              <span className="inline-block px-5 py-1 bg-[#071a3a] text-white rounded-full text-xs font-bold tracking-widest uppercase shadow-xs">
-                VIGILANCE AWARENESS WEEK 2026
+          {/* Body Certification Statement */}
+          <div className="max-w-3xl mx-auto text-center my-4 space-y-3">
+            <p className="text-xs sm:text-sm font-serif italic text-slate-700">
+              This is to certify that
+            </p>
+
+            {/* Dotted underline container with Participant Name */}
+            <div className="relative border-b-2 border-dotted border-slate-400 pb-1 max-w-xl mx-auto">
+              <span className="text-2xl sm:text-4xl font-serif font-extrabold text-[#071a3a] tracking-wide">
+                {recipientName}
               </span>
             </div>
 
-            {/* Current Year Official Slogan */}
-            <div className="text-xs sm:text-sm text-[#8a6a12] font-bold tracking-wider">
-              {sloganHindi} · {sloganEnglish}
-            </div>
-          </div>
-
-          {/* Certificate Main Title */}
-          <div className="my-2">
-            <h2 className="text-2xl sm:text-4xl font-serif font-bold text-[#071a3a] mb-1">
-              Certificate of Integrity Commitment
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-600 italic">
-              This is to solemnly certify that
-            </p>
-          </div>
-
-          {/* Recipient Name in Calligraphic Serif Style */}
-          <div className="my-2 py-1">
-            <div className="text-3xl sm:text-5xl font-serif italic font-bold text-[#9a3412] tracking-wide">
-              {recipientName || 'Valued Public Servant'}
-            </div>
             {(designation || organization) && (
-              <div className="text-xs sm:text-sm font-semibold text-slate-700 mt-1">
-                {[designation, organization].filter(Boolean).join(' · ')}
+              <div className="flex flex-wrap items-center justify-center gap-2 text-xs font-bold text-slate-800 pt-1">
+                {designation && (
+                  <span className="bg-white border border-amber-300 px-3 py-0.5 rounded-full shadow-2xs">
+                    {designation}
+                  </span>
+                )}
+                {organization && (
+                  <span className="bg-white border border-amber-300 px-3 py-0.5 rounded-full shadow-2xs">
+                    {organization}
+                  </span>
+                )}
               </div>
+            )}
+
+            {type === 'pledge' ? (
+              <>
+                <p className="text-xs sm:text-sm text-slate-800 leading-relaxed pt-2">
+                  has taken the <strong className="text-[#071a3a] font-bold">Integrity Pledge</strong> during
+                </p>
+                <div className="text-base sm:text-xl font-serif font-extrabold text-[#800000] tracking-wide">
+                  Vigilance Awareness Week 2026
+                </div>
+                <p className="text-xs sm:text-sm font-semibold text-slate-800">
+                  organized by Vigilance Department, Chittaranjan Locomotive Works,
+                </p>
+                <p className="text-xs text-slate-600 max-w-2xl mx-auto leading-relaxed italic pt-1">
+                  and has solemnly committed to uphold the highest standards of honesty, integrity and transparency in all activities towards building a corruption-free India.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-xs sm:text-sm text-slate-800 leading-relaxed pt-2">
+                  has actively participated in the <strong className="text-[#071a3a] font-bold">Quiz Competition</strong> organized during
+                </p>
+                <div className="text-base sm:text-xl font-serif font-extrabold text-[#800000] tracking-wide">
+                  Vigilance Awareness Week 2026
+                </div>
+                <p className="text-xs sm:text-sm font-semibold text-slate-800">
+                  by Vigilance Department, Chittaranjan Locomotive Works.
+                </p>
+                <p className="text-xs text-slate-600 max-w-2xl mx-auto leading-relaxed italic pt-1">
+                  We appreciate your enthusiasm, knowledge and commitment towards promoting integrity, transparency and a corruption-free workplace.
+                </p>
+              </>
             )}
           </div>
 
-          {/* Body Paragraph */}
-          <p className="max-w-3xl mx-auto text-xs sm:text-sm text-slate-700 leading-relaxed my-2">
-            has solemnly taken the official Integrity Pledge, affirming unconditional commitment to eradicate corruption, uphold the Canons of Financial Propriety, adhere strictly to Conduct Rules, and act with undivided integrity in service of the Nation.
-          </p>
+          {/* Middle Layout: Left Train Graphic, Center Score / Ref ID, Right 5 Core Pillars */}
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center my-6 py-4 border-t border-b border-amber-200/80 bg-amber-50/30 rounded-xl px-4">
+            
+            {/* Left: Electric Locomotive Graphic Badge */}
+            <div className="md:col-span-4 text-left flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-blue-900 text-amber-300 flex items-center justify-center font-extrabold shrink-0 border border-amber-400">
+                🚆
+              </div>
+              <div>
+                <div className="text-[11px] font-extrabold text-[#071a3a]">
+                  CHITTARANJAN LOCOMOTIVE WORKS
+                </div>
+                <div className="text-[10px] text-slate-500 font-medium">
+                  Electric Locomotive Manufacturing Hub · Indian Railways
+                </div>
+              </div>
+            </div>
 
-          {/* Certificate Metadata Bar */}
-          <div className="max-w-2xl mx-auto w-full bg-[#071a3a] text-white rounded-xl p-3 flex items-center justify-between gap-4 my-2 shadow-sm text-xs">
-            <div className="text-left">
-              <span className="text-[10px] text-amber-200 block uppercase font-medium">Certificate ID</span>
-              <span className="font-mono font-bold">{certificateId}</span>
+            {/* Center Reference / Score Box */}
+            <div className="md:col-span-4 text-center bg-[#071a3a] text-white p-3 rounded-xl shadow-xs border border-amber-400/40">
+              <div className="text-[10px] text-amber-300 font-bold uppercase tracking-wider">
+                {type === 'pledge' ? 'Pledge Reference Number' : 'Quiz Certificate ID'}
+              </div>
+              <div className="text-sm font-mono font-extrabold text-white mt-0.5">
+                {certificateId}
+              </div>
+              {quizScore !== undefined && totalQuestions !== undefined && (
+                <div className="text-[11px] font-mono font-semibold text-amber-200 mt-1">
+                  Score: {quizScore} / {totalQuestions}
+                </div>
+              )}
             </div>
-            <div className="text-center hidden sm:block">
-              <span className="text-[10px] text-amber-200 block uppercase font-medium">Category</span>
-              <span className="font-semibold">Public Servant Probity</span>
+
+            {/* Right: 5 Core Pillars with Icons */}
+            <div className="md:col-span-4 text-left space-y-1 pl-2">
+              <div className="text-[11px] font-extrabold text-blue-950 uppercase tracking-wider mb-1">
+                Core Pillars
+              </div>
+              <div className="text-[10px] font-bold text-blue-900 flex items-center gap-1.5">
+                <Shield className="w-3 h-3 text-blue-700 shrink-0" />
+                <span>ZERO CORRUPTION</span>
+              </div>
+              <div className="text-[10px] font-bold text-emerald-900 flex items-center gap-1.5">
+                <Users className="w-3 h-3 text-emerald-700 shrink-0" />
+                <span>ETHICAL WORK CULTURE</span>
+              </div>
+              <div className="text-[10px] font-bold text-amber-900 flex items-center gap-1.5">
+                <Settings className="w-3 h-3 text-amber-700 shrink-0" />
+                <span>TRANSPARENT PROCESSES</span>
+              </div>
+              <div className="text-[10px] font-bold text-purple-900 flex items-center gap-1.5">
+                <Handshake className="w-3 h-3 text-purple-700 shrink-0" />
+                <span>ACCOUNTABLE ADMINISTRATION</span>
+              </div>
+              <div className="text-[10px] font-bold text-green-900 flex items-center gap-1.5">
+                <Sprout className="w-3 h-3 text-green-700 shrink-0" />
+                <span>PROSPEROUS RAILWAYS</span>
+              </div>
             </div>
-            <div className="text-right">
-              <span className="text-[10px] text-amber-200 block uppercase font-medium">Date of Issue</span>
-              <span className="font-semibold">{date}</span>
-            </div>
+
           </div>
 
-          {/* Signatures & Seal Row */}
-          <div className="flex items-center justify-between gap-6 pt-3 border-t border-amber-200/80 mt-2">
-            {/* Left Seal */}
-            <div className="flex items-center gap-3">
-              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full border-2 border-dashed border-[#d4a017] flex flex-col items-center justify-center text-center p-2 text-[#8a6a12] select-none transform -rotate-6 bg-white/60 shadow-xs">
-                <span className="text-[10px] font-extrabold tracking-wider leading-tight">CLW</span>
-                <span className="text-[9px] font-bold tracking-wider leading-tight">VIGILANCE</span>
-                <span className="text-[8px] font-semibold tracking-wider leading-tight">CHITTARANJAN</span>
+          {/* Footer Row: Left Place/Date, Right CVO Signature Block */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-6 pt-2">
+            <div className="text-left space-y-0.5">
+              <div className="text-xs font-bold text-slate-900">
+                Place : Chittaranjan
               </div>
-              <div className="text-left text-xs hidden sm:block">
-                <div className="flex items-center gap-1 text-emerald-700 font-semibold">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>Officially Verified Record</span>
-                </div>
-                <div className="text-slate-500 text-[11px]">
-                  CVC Vigilance Awareness 2026
-                </div>
+              <div className="text-xs font-bold text-slate-900">
+                Date : {date}
               </div>
             </div>
 
-            {/* Right: Signature Photo of SDGM & CVO */}
+            {/* Right CVO Signature Line */}
             <div className="text-center sm:text-right min-w-[240px]">
-              <div className="h-16 flex items-center justify-center sm:justify-end mb-1">
-                {signaturePhoto ? (
-                  <img
-                    src={signaturePhoto}
-                    alt="SDGM & CVO Signature"
-                    className="max-h-16 max-w-[200px] object-contain pointer-events-none"
+              <div className="h-12 flex items-center justify-center sm:justify-end mb-1">
+                <svg viewBox="0 0 200 50" className="h-10 w-auto text-[#071a3a]">
+                  <path
+                    d="M 20 35 C 15 18, 28 8, 38 22 C 48 36, 52 12, 65 28 C 75 42, 85 18, 100 32 C 115 38, 135 28, 170 35"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="3.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
                   />
-                ) : (
-                  <div className="font-serif italic text-2xl text-[#071a3a] font-bold">
-                    {cvoName || 'Sugind Surendran'}
-                  </div>
-                )}
+                  <circle cx="75" cy="12" r="2.5" fill="currentColor" />
+                  <circle cx="90" cy="10" r="2.5" fill="currentColor" />
+                </svg>
               </div>
 
-              <div className="w-48 h-px bg-[#d4a017] mx-auto sm:ml-auto mb-1.5" />
+              <div className="w-48 h-0.5 bg-[#071a3a] mx-auto sm:ml-auto mb-1" />
 
-              <div className="text-xs sm:text-sm font-bold text-slate-900">
-                {cvoName || 'Sugind Surendran'}
+              <div className="text-xs font-extrabold text-slate-900">
+                SUGIND SURENDRAN
               </div>
-              <div className="text-[11px] text-slate-600 font-medium">
-                {cvoDesignation || 'SDGM & Chief Vigilance Officer'}
+              <div className="text-[11px] font-bold text-slate-700">
+                SDGM &amp; CVO
               </div>
-              <div className="text-[10px] text-slate-500">
-                {cvoOrganization || 'Chittaranjan Locomotive Works, Chittaranjan'}
+              <div className="text-[10px] text-slate-500 font-medium">
+                Chittaranjan Locomotive Works
               </div>
             </div>
           </div>
@@ -443,79 +779,28 @@ export const CertificateView: React.FC<CertificateProps> = ({
         </div>
       </article>
 
-      {/* Hidden 2000x1414 Canvas for Export */}
       <canvas ref={canvasRef} width={2000} height={1414} className="hidden" />
 
-      <div className="no-print mt-4 text-center text-xs text-slate-500">
-        Tip: In your print window, select "Landscape" orientation and "Save as PDF" to generate your high-resolution official e-certificate.
+      <div className="no-print mt-4 text-center text-xs text-slate-500 flex items-center justify-center gap-3">
+        <span>Click "Download PNG" for high-resolution certificate, "Print" for PDF, or "Save to Google Drive" to backup to your cloud.</span>
+        <button
+          onClick={() => setDriveModalOpen(true)}
+          className="text-blue-900 font-bold hover:underline inline-flex items-center gap-1"
+        >
+          <HardDrive className="w-3.5 h-3.5" />
+          <span>Manage Drive Files</span>
+        </button>
       </div>
+
+      <ShareModal
+        isOpen={shareOpen}
+        onClose={() => setShareOpen(false)}
+      />
+
+      <DriveModal
+        isOpen={driveModalOpen}
+        onClose={() => setDriveModalOpen(false)}
+      />
     </div>
   );
 };
-
-// Helper Canvas Functions
-function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + w - r, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-  ctx.lineTo(x + w, y + h - r);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-  ctx.lineTo(x + r, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-  ctx.lineTo(x, y + r);
-  ctx.quadraticCurveTo(x, y, x + r, y);
-  ctx.closePath();
-}
-
-function wrapText(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxWidth: number, lineHeight: number) {
-  const words = text.split(' ');
-  let line = '';
-  let curY = y;
-  for (let n = 0; n < words.length; n++) {
-    const testLine = line + words[n] + ' ';
-    const metrics = ctx.measureText(testLine);
-    if (metrics.width > maxWidth && n > 0) {
-      ctx.fillText(line.trim(), x, curY);
-      line = words[n] + ' ';
-      curY += lineHeight;
-    } else {
-      line = testLine;
-    }
-  }
-  ctx.fillText(line.trim(), x, curY);
-}
-
-function drawCornerAccent(ctx: CanvasRenderingContext2D, x: number, y: number, flipX = false, flipY = false) {
-  ctx.save();
-  ctx.translate(x, y);
-  if (flipX) ctx.scale(-1, 1);
-  if (flipY) ctx.scale(1, -1);
-  ctx.strokeStyle = '#d4a017';
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.moveTo(0, 0);
-  ctx.lineTo(40, 0);
-  ctx.moveTo(0, 0);
-  ctx.lineTo(0, 40);
-  ctx.stroke();
-  ctx.restore();
-}
-
-function drawOfficialStamp(ctx: CanvasRenderingContext2D, cx: number, cy: number, _certId: string, _date: string) {
-  ctx.save();
-  ctx.beginPath();
-  ctx.arc(cx, cy, 68, 0, Math.PI * 2);
-  ctx.strokeStyle = '#d4a017';
-  ctx.setLineDash([6, 4]);
-  ctx.lineWidth = 3.5;
-  ctx.stroke();
-  ctx.setLineDash([]);
-  ctx.fillStyle = '#8a6a12';
-  ctx.font = '800 15px Outfit, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText('CLW', cx, cy - 10);
-  ctx.fillText('VIGILANCE', cx, cy + 10);
-  ctx.fillText('CHITTARANJAN', cx, cy + 30);
-  ctx.restore();
-}
