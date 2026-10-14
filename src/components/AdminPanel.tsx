@@ -25,7 +25,15 @@ import {
   Check,
   Building,
   Share2,
-  HardDrive
+  HardDrive,
+  Zap,
+  Clock,
+  Play,
+  FastForward,
+  Trophy,
+  Flame,
+  Eye,
+  ExternalLink
 } from 'lucide-react';
 
 interface AdminPanelProps {
@@ -36,9 +44,17 @@ interface AdminPanelProps {
 export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, onSettingsUpdated }) => {
   const [admin, setAdmin] = useState<{ id: number; username: string; display_name: string; must_change: boolean } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'questions' | 'signature' | 'schedule' | 'results' | 'audit' | 'password'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'live' | 'questions' | 'signature' | 'schedule' | 'results' | 'audit' | 'password'>('dashboard');
   const [shareOpen, setShareOpen] = useState(false);
   const [driveOpen, setDriveOpen] = useState(false);
+
+  // Live Quiz Control Room State
+  const [liveAdminState, setLiveAdminState] = useState<any>(null);
+  const [liveTimerSeconds, setLiveTimerSeconds] = useState<number>(30);
+  const [liveQuestionCount, setLiveQuestionCount] = useState<number>(10);
+  const [liveDept, setLiveDept] = useState<string>('All');
+  const [liveLoading, setLiveLoading] = useState<boolean>(false);
+  const [liveActionMsg, setLiveActionMsg] = useState<{ text: string; isError: boolean } | null>(null);
 
   // Login form state
   const [loginUser, setLoginUser] = useState('admin');
@@ -185,6 +201,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, onSettingsUpdat
 
     if (tab === 'dashboard') {
       loadDashboardData();
+    } else if (tab === 'live') {
+      loadLiveAdminState();
     } else if (tab === 'questions') {
       loadQuestions(selectedDeptFilter);
     } else if (tab === 'signature') {
@@ -195,6 +213,129 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, onSettingsUpdat
       loadResults();
     } else if (tab === 'audit') {
       loadAudit();
+    }
+  };
+
+  // --- Live Quiz Operations ---
+  const loadLiveAdminState = async () => {
+    try {
+      const res = await api.adminGetLiveState();
+      if (res && res.ok) {
+        setLiveAdminState(res);
+        if (res.timerSeconds) setLiveTimerSeconds(res.timerSeconds);
+      }
+    } catch (err) {
+      console.error('Failed loading live admin state', err);
+    }
+  };
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    if (activeTab === 'live') {
+      loadLiveAdminState();
+      interval = setInterval(loadLiveAdminState, 1500);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [activeTab]);
+
+  const handleStartLobby = async () => {
+    setLiveLoading(true);
+    setLiveActionMsg(null);
+    try {
+      soundEffects.playClick();
+      const res = await api.adminStartLiveLobby({
+        timerSeconds: liveTimerSeconds,
+        questionCount: liveQuestionCount,
+        department: liveDept
+      });
+      setLiveAdminState(res);
+      setLiveActionMsg({ text: 'Live Lobby opened! Participants can now register & join.', isError: false });
+    } catch (err: any) {
+      setLiveActionMsg({ text: err.message || 'Failed to start lobby', isError: true });
+    } finally {
+      setLiveLoading(false);
+    }
+  };
+
+  const handleSetLiveTimer = async (seconds: number) => {
+    setLiveTimerSeconds(seconds);
+    try {
+      soundEffects.playClick();
+      await api.adminSetLiveTimer(seconds);
+      loadLiveAdminState();
+    } catch (err) {
+      console.error('Failed setting timer', err);
+    }
+  };
+
+  const handleStartQuestion = async (idx?: number) => {
+    setLiveLoading(true);
+    setLiveActionMsg(null);
+    try {
+      soundEffects.playClick();
+      const res = await api.adminStartLiveQuestion(idx);
+      setLiveAdminState(res);
+      setLiveActionMsg({ text: `Question ${res.currentIndex + 1} launched with ${res.timerSeconds}s countdown!`, isError: false });
+    } catch (err: any) {
+      setLiveActionMsg({ text: err.message || 'Failed to launch question', isError: true });
+    } finally {
+      setLiveLoading(false);
+    }
+  };
+
+  const handleRevealAnswer = async () => {
+    setLiveLoading(true);
+    try {
+      soundEffects.playClick();
+      const res = await api.adminRevealLiveAnswer();
+      setLiveAdminState(res);
+      setLiveActionMsg({ text: 'Answer revealed to all participants!', isError: false });
+    } catch (err: any) {
+      setLiveActionMsg({ text: err.message || 'Failed to reveal answer', isError: true });
+    } finally {
+      setLiveLoading(false);
+    }
+  };
+
+  const handleNextQuestion = async () => {
+    setLiveLoading(true);
+    try {
+      soundEffects.playClick();
+      const res = await api.adminNextLiveQuestion();
+      setLiveAdminState(res);
+    } catch (err: any) {
+      setLiveActionMsg({ text: err.message || 'Failed to advance to next question', isError: true });
+    } finally {
+      setLiveLoading(false);
+    }
+  };
+
+  const handleEndQuiz = async () => {
+    if (!window.confirm('Are you sure you want to end the Live Quiz and publish final standings?')) return;
+    setLiveLoading(true);
+    try {
+      soundEffects.playFanfare();
+      const res = await api.adminEndLiveQuiz();
+      setLiveAdminState(res);
+      setLiveActionMsg({ text: 'Quiz ended! Final leaderboard published and certificates ready.', isError: false });
+    } catch (err: any) {
+      setLiveActionMsg({ text: err.message || 'Failed to end quiz', isError: true });
+    } finally {
+      setLiveLoading(false);
+    }
+  };
+
+  const handleResetLive = async () => {
+    if (!window.confirm('Reset Live Quiz session? All active scores and lobby participants will be cleared.')) return;
+    try {
+      soundEffects.playClick();
+      const res = await api.adminResetLiveQuiz();
+      setLiveAdminState(res);
+      setLiveActionMsg({ text: 'Live session reset to Idle.', isError: false });
+    } catch (err: any) {
+      setLiveActionMsg({ text: err.message || 'Failed to reset session', isError: true });
     }
   };
 
@@ -388,7 +529,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, onSettingsUpdat
         signature_photo: settings.signature_photo,
         seal_text: settings.seal_text,
         quiz_seconds: Number(settings.quiz_seconds),
-        quiz_count: Number(settings.quiz_count)
+        quiz_count: Number(settings.quiz_count),
+        slogan_hindi: settings.slogan_hindi,
+        slogan_english: settings.slogan_english
       });
       if (res.ok) {
         soundEffects.playCorrect();
@@ -672,6 +815,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, onSettingsUpdat
         </button>
 
         <button
+          onClick={() => handleTabChange('live')}
+          className={`px-3.5 py-2 text-xs font-semibold rounded-lg whitespace-nowrap transition-colors flex items-center gap-1.5 ${
+            activeTab === 'live' ? 'bg-rose-700 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          <Zap className="w-3.5 h-3.5 text-amber-300" />
+          <span>Live Quiz Control Room</span>
+        </button>
+
+        <button
           onClick={() => handleTabChange('questions')}
           className={`px-3.5 py-2 text-xs font-semibold rounded-lg whitespace-nowrap transition-colors flex items-center gap-1.5 ${
             activeTab === 'questions' ? 'bg-blue-950 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
@@ -890,6 +1043,327 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, onSettingsUpdat
                 </div>
                 <HardDrive className="w-5 h-5 text-blue-800" />
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- TAB: ONLINE LIVE QUIZ CONTROL ROOM --- */}
+      {activeTab === 'live' && (
+        <div className="space-y-6">
+          {/* Top Control Room Bar */}
+          <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-950 text-white rounded-2xl p-5 sm:p-6 shadow-md border border-indigo-900/50 flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className={`inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider ${
+                  liveAdminState?.status === 'question'
+                    ? 'bg-rose-500 text-white animate-pulse'
+                    : liveAdminState?.status === 'review'
+                    ? 'bg-amber-500 text-slate-950'
+                    : liveAdminState?.status === 'lobby'
+                    ? 'bg-emerald-500 text-slate-950'
+                    : 'bg-slate-700 text-slate-300'
+                }`}>
+                  <span className="w-2 h-2 rounded-full bg-current animate-ping" />
+                  STATUS: {liveAdminState?.status ? liveAdminState.status.toUpperCase() : 'IDLE'}
+                </span>
+                <span className="text-xs text-amber-300 font-mono">
+                  Room: {liveAdminState?.sessionCode || 'CLW2026'}
+                </span>
+              </div>
+              <h2 className="text-xl sm:text-2xl font-serif font-bold text-white">
+                Live Quiz Control Room
+              </h2>
+              <p className="text-xs text-slate-300 mt-0.5">
+                Start live synchronized quizzes, configure question timers, and monitor real-time participant speed and ranking scores.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2.5">
+              <a
+                href="?page=live"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-bold rounded-lg shadow-sm transition-all"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                <span>Open Projector View (Big Screen)</span>
+              </a>
+
+              <button
+                onClick={loadLiveAdminState}
+                className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors"
+                title="Refresh Live State"
+              >
+                <RefreshCw className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {liveActionMsg && (
+            <div className={`p-3.5 rounded-xl border text-xs flex items-center justify-between gap-2 shadow-xs ${
+              liveActionMsg.isError
+                ? 'bg-rose-50 border-rose-300 text-rose-900'
+                : 'bg-emerald-50 border-emerald-300 text-emerald-900'
+            }`}>
+              <div className="flex items-center gap-2">
+                {liveActionMsg.isError ? <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" /> : <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />}
+                <span>{liveActionMsg.text}</span>
+              </div>
+              <button
+                onClick={() => setLiveActionMsg(null)}
+                className="text-xs font-bold text-slate-500 hover:text-slate-800"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
+          {/* Control Room Operations Card */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-xs space-y-5">
+            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+              <Zap className="w-4 h-4 text-amber-600" />
+              <span>Admin Live Controls &amp; Timer Configuration</span>
+            </h3>
+
+            {/* Timer Configurator */}
+            <div className="p-4 rounded-xl bg-amber-50/50 border border-amber-200/80 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-amber-950 mb-0.5">
+                    Question Countdown Timer (Admin Configured per Question)
+                  </label>
+                  <p className="text-[11px] text-slate-600">
+                    Participants answer against this countdown. Speed bonuses are calculated based on seconds remaining.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {[15, 20, 30, 45, 60].map(sec => (
+                    <button
+                      key={sec}
+                      type="button"
+                      onClick={() => handleSetLiveTimer(sec)}
+                      className={`px-3 py-1.5 text-xs font-mono font-bold rounded-lg border transition-all ${
+                        liveTimerSeconds === sec
+                          ? 'bg-amber-500 border-amber-600 text-slate-950 shadow-xs'
+                          : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      {sec}s
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 pt-2 border-t border-amber-200/60">
+                <span className="text-xs font-semibold text-slate-700">Custom Seconds:</span>
+                <input
+                  type="number"
+                  min={10}
+                  max={180}
+                  value={liveTimerSeconds}
+                  onChange={e => setLiveTimerSeconds(Number(e.target.value))}
+                  className="w-24 px-3 py-1.5 text-xs font-mono font-bold border border-slate-300 rounded-lg bg-white"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleSetLiveTimer(liveTimerSeconds)}
+                  className="px-3.5 py-1.5 bg-blue-950 hover:bg-blue-900 text-white text-xs font-bold rounded-lg shadow-xs"
+                >
+                  Apply Timer
+                </button>
+              </div>
+            </div>
+
+            {/* Action Buttons Bar */}
+            <div className="flex flex-wrap items-center gap-3 pt-2">
+              {/* Start Lobby Button */}
+              {(!liveAdminState || liveAdminState.status === 'idle' || liveAdminState.status === 'ended') && (
+                <button
+                  onClick={handleStartLobby}
+                  disabled={liveLoading}
+                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs transition-colors flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  <Play className="w-4 h-4" />
+                  <span>Open Live Lobby (Allow Registration)</span>
+                </button>
+              )}
+
+              {/* Start Question 1 (from lobby) */}
+              {liveAdminState?.status === 'lobby' && (
+                <button
+                  onClick={() => handleStartQuestion(0)}
+                  disabled={liveLoading}
+                  className="px-5 py-2.5 bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-500 hover:to-rose-600 text-white text-xs font-extrabold rounded-xl shadow-md transition-colors flex items-center gap-2 cursor-pointer animate-pulse"
+                >
+                  <Play className="w-4 h-4 text-amber-300" />
+                  <span>Launch Question 1 ({liveTimerSeconds}s Timer)</span>
+                </button>
+              )}
+
+              {/* Reveal Answer (during active question) */}
+              {liveAdminState?.status === 'question' && (
+                <button
+                  onClick={handleRevealAnswer}
+                  disabled={liveLoading}
+                  className="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold rounded-xl shadow-xs transition-colors flex items-center gap-2 cursor-pointer"
+                >
+                  <Eye className="w-4 h-4" />
+                  <span>Reveal Correct Answer &amp; Scores</span>
+                </button>
+              )}
+
+              {/* Next Question (during review) */}
+              {liveAdminState?.status === 'review' && (
+                <button
+                  onClick={handleNextQuestion}
+                  disabled={liveLoading}
+                  className="px-5 py-2.5 bg-blue-950 hover:bg-blue-900 text-white text-xs font-bold rounded-xl shadow-xs transition-colors flex items-center gap-2 cursor-pointer"
+                >
+                  <FastForward className="w-4 h-4 text-amber-300" />
+                  <span>Next Question ({((liveAdminState.currentIndex || 0) + 2)} of {liveAdminState.questionCount})</span>
+                </button>
+              )}
+
+              {/* End Quiz Button */}
+              {liveAdminState && liveAdminState.status !== 'idle' && liveAdminState.status !== 'ended' && (
+                <button
+                  onClick={handleEndQuiz}
+                  disabled={liveLoading}
+                  className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer ml-auto"
+                >
+                  <Trophy className="w-4 h-4 text-amber-400" />
+                  <span>End Quiz &amp; Publish Final Podium</span>
+                </button>
+              )}
+
+              {/* Reset Session */}
+              <button
+                onClick={handleResetLive}
+                disabled={liveLoading}
+                className="px-3.5 py-2.5 text-xs text-rose-700 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
+              >
+                Reset Session
+              </button>
+            </div>
+          </div>
+
+          {/* Active Question Live Monitor */}
+          {liveAdminState?.activeQuestion && (
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 text-white shadow-md space-y-4">
+              <div className="flex items-center justify-between gap-3 pb-2 border-b border-slate-800">
+                <span className="text-xs font-bold text-amber-400 uppercase tracking-wider">
+                  Live Question Monitor: #{((liveAdminState.activeQuestion.index || 0) + 1)} of {liveAdminState.activeQuestion.total}
+                </span>
+                <span className="text-xs font-mono text-slate-400">
+                  Time Limit: {liveAdminState.activeQuestion.timerSeconds || liveAdminState.timerSeconds}s
+                </span>
+              </div>
+
+              <h4 className="text-base sm:text-lg font-serif font-bold text-white">
+                {liveAdminState.activeQuestion.question}
+              </h4>
+
+              {/* Options Breakdown with Correct Answer and Vote Counts */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {liveAdminState.activeQuestion.options.map((opt: string, idx: number) => {
+                  const isCorrect = liveAdminState.correctIndex === idx || liveAdminState.reviewData?.correctIndex === idx;
+                  const count = liveAdminState.reviewData?.optionCounts?.[idx];
+
+                  return (
+                    <div
+                      key={idx}
+                      className={`p-3.5 rounded-xl border text-xs flex items-center justify-between gap-3 ${
+                        isCorrect
+                          ? 'bg-emerald-950/80 border-emerald-500 text-emerald-200 font-semibold'
+                          : 'bg-slate-800/80 border-slate-700 text-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <span className={`w-6 h-6 rounded-md flex items-center justify-center font-bold font-mono text-xs ${
+                          isCorrect ? 'bg-emerald-500 text-slate-950' : 'bg-slate-700 text-slate-200'
+                        }`}>
+                          {['A', 'B', 'C', 'D'][idx]}
+                        </span>
+                        <span>{opt}</span>
+                      </div>
+
+                      {count !== undefined && (
+                        <span className="font-mono font-bold text-amber-300 bg-black/40 px-2 py-0.5 rounded-md">
+                          {count} votes
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Live Leaderboard / Scoreboard Table */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-xs">
+            <div className="flex items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-200">
+              <div className="flex items-center gap-2">
+                <Flame className="w-5 h-5 text-amber-600" />
+                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
+                  Live Participant Scoreboard ({liveAdminState?.leaderboard?.length || 0} Registered)
+                </h3>
+              </div>
+              <span className="text-xs text-slate-500">
+                Ranked by Score (Marks + Speed Bonus) &amp; Response Timing
+              </span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-slate-200 text-slate-500 uppercase tracking-wider font-semibold">
+                    <th className="py-2.5 px-3">Rank</th>
+                    <th className="py-2.5 px-3">PF No</th>
+                    <th className="py-2.5 px-3">Name</th>
+                    <th className="py-2.5 px-3">Designation</th>
+                    <th className="py-2.5 px-3">Department</th>
+                    <th className="py-2.5 px-3 text-right">Score</th>
+                    <th className="py-2.5 px-3 text-right">Time Taken</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {liveAdminState?.leaderboard?.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-8 text-center text-slate-400 italic">
+                        No participants registered in live session yet. Open lobby and share public quiz link!
+                      </td>
+                    </tr>
+                  ) : (
+                    liveAdminState?.leaderboard?.map((p: any) => (
+                      <tr key={p.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="py-2 px-3 font-mono font-bold">
+                          {p.rank === 1 ? '🥇 #1' : p.rank === 2 ? '🥈 #2' : p.rank === 3 ? '🥉 #3' : `#${p.rank}`}
+                        </td>
+                        <td className="py-2 px-3 font-mono font-semibold text-blue-950">
+                          {p.pf}
+                        </td>
+                        <td className="py-2 px-3 font-semibold text-slate-900">
+                          {p.name}
+                        </td>
+                        <td className="py-2 px-3 text-slate-600">
+                          {p.designation}
+                        </td>
+                        <td className="py-2 px-3 text-slate-600">
+                          {p.department}
+                        </td>
+                        <td className="py-2 px-3 text-right font-mono font-bold text-emerald-700">
+                          {p.score} pts
+                        </td>
+                        <td className="py-2 px-3 text-right font-mono text-slate-600">
+                          {p.totalTimeTaken}s
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>

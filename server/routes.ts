@@ -1,5 +1,6 @@
 import express, { type Request, type Response } from 'express';
 import { db, DEPARTMENTS, UNITS, type QuestionItem } from './db.ts';
+import { liveQuiz } from './liveQuiz.ts';
 
 export const apiRouter = express.Router();
 
@@ -54,8 +55,11 @@ apiRouter.get('/home', (_req, res) => {
       seal_text: settings.seal_text,
       logo_url: settings.logo_url,
       has_signature: !!settings.signature_photo,
+      signature_photo: settings.signature_photo,
       quiz_seconds: settings.quiz_seconds,
-      quiz_count: settings.quiz_count
+      quiz_count: settings.quiz_count,
+      slogan_hindi: settings.slogan_hindi || 'सत्यनिष्ठा की संस्कृति से राष्ट्र की समृद्धि',
+      slogan_english: settings.slogan_english || "Culture of Integrity for Nation's Prosperity"
     }
   });
 });
@@ -286,7 +290,9 @@ apiRouter.get('/certificate', (req, res) => {
       cvo_organization: settings.cvo_organization,
       signature_photo: settings.signature_photo,
       seal_text: settings.seal_text,
-      logo_url: settings.logo_url
+      logo_url: settings.logo_url,
+      slogan_hindi: settings.slogan_hindi || 'सत्यनिष्ठा की संस्कृति से राष्ट्र की समृद्धि',
+      slogan_english: settings.slogan_english || "Culture of Integrity for Nation's Prosperity"
     }
   });
 });
@@ -673,4 +679,134 @@ apiRouter.post('/admin/change_password', requireAdmin, (req, res) => {
   db.updateAdminPassword(admin.id, String(next));
   db.logAudit(admin.username, 'password_change', 'Admin password updated', getClientIp(req));
   res.json({ ok: true, message: 'Password updated successfully.' });
+});
+
+// ==========================================
+// --- ONLINE LIVE QUIZ REST API ENDPOINTS ---
+// ==========================================
+
+// Public Live Quiz state (current question sanitized, timer, leaderboard, participant counts)
+apiRouter.get('/live/state', (_req, res) => {
+  res.json(liveQuiz.getPublicState());
+});
+
+// Register participant into Live Quiz
+apiRouter.post('/live/join', (req, res) => {
+  const { name, pf, designation, mobile, department, unit } = req.body || {};
+  const cleanPf = String(pf || '').trim().toUpperCase().replace(/\s+/g, '');
+  const cleanName = String(name || '').trim();
+  const cleanDesig = String(designation || '').trim();
+  const cleanMobile = String(mobile || '').replace(/\D+/g, '');
+  const cleanDept = String(department || '').trim();
+
+  if (!cleanPf || !cleanName || !cleanDesig) {
+    res.status(422).json({ ok: false, error: 'Please enter Name, Designation, and PF Number.' });
+    return;
+  }
+  if (!cleanDept) {
+    res.status(422).json({ ok: false, error: 'Please select your Department from the list.' });
+    return;
+  }
+  if (cleanMobile.length < 10) {
+    res.status(422).json({ ok: false, error: 'Please enter a valid 10-digit mobile number.' });
+    return;
+  }
+
+  const participant = liveQuiz.registerParticipant({
+    pf: cleanPf,
+    name: cleanName,
+    designation: cleanDesig,
+    mobile: cleanMobile,
+    department: cleanDept,
+    unit: unit || 'Chittaranjan Locomotive Works'
+  });
+
+  liveQuiz.broadcast({
+    type: 'participant_joined',
+    participantCount: liveQuiz.getPublicState().participantCount,
+    leaderboard: liveQuiz.getLeaderboard().slice(0, 10)
+  });
+
+  res.json({
+    ok: true,
+    participant,
+    state: liveQuiz.getPublicState()
+  });
+});
+
+// Submit answer for active question
+apiRouter.post('/live/submit', (req, res) => {
+  const { pf, selectedOption, clientTimeTaken } = req.body || {};
+  const result = liveQuiz.recordAnswer(pf, Number(selectedOption), Number(clientTimeTaken));
+
+  if (!result.ok) {
+    res.status(400).json(result);
+    return;
+  }
+
+  liveQuiz.broadcast({
+    type: 'leaderboard_update',
+    leaderboard: liveQuiz.getLeaderboard()
+  });
+
+  res.json(result);
+});
+
+// Live Leaderboard (scored on both Marks and Response Timing)
+apiRouter.get('/live/leaderboard', (_req, res) => {
+  res.json({
+    ok: true,
+    leaderboard: liveQuiz.getLeaderboard()
+  });
+});
+
+// Admin Live Controls
+apiRouter.post('/live/admin/start_lobby', requireAdmin, (req, res) => {
+  const { timerSeconds, questionCount, department } = req.body || {};
+  const state = liveQuiz.startLobby({
+    timerSeconds: timerSeconds ? Number(timerSeconds) : undefined,
+    questionCount: questionCount ? Number(questionCount) : undefined,
+    department: department ? String(department) : undefined
+  });
+  res.json(state);
+});
+
+apiRouter.post('/live/admin/set_timer', requireAdmin, (req, res) => {
+  const { timerSeconds } = req.body || {};
+  if (!timerSeconds) {
+    res.status(422).json({ ok: false, error: 'Please provide timerSeconds' });
+    return;
+  }
+  const updated = liveQuiz.setTimer(Number(timerSeconds));
+  res.json({ ok: true, timerSeconds: updated });
+});
+
+apiRouter.post('/live/admin/start_question', requireAdmin, (req, res) => {
+  const { questionIndex } = req.body || {};
+  const state = liveQuiz.startQuestion(questionIndex !== undefined ? Number(questionIndex) : undefined);
+  res.json(state);
+});
+
+apiRouter.post('/live/admin/reveal_answer', requireAdmin, (_req, res) => {
+  const state = liveQuiz.revealAnswer();
+  res.json(state);
+});
+
+apiRouter.post('/live/admin/next_question', requireAdmin, (_req, res) => {
+  const state = liveQuiz.nextQuestion();
+  res.json(state);
+});
+
+apiRouter.post('/live/admin/end_quiz', requireAdmin, (_req, res) => {
+  const state = liveQuiz.endQuiz();
+  res.json(state);
+});
+
+apiRouter.post('/live/admin/reset', requireAdmin, (_req, res) => {
+  const state = liveQuiz.resetSession();
+  res.json(state);
+});
+
+apiRouter.get('/live/admin/state', requireAdmin, (_req, res) => {
+  res.json(liveQuiz.getAdminState());
 });

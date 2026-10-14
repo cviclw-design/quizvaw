@@ -4,6 +4,7 @@ import { ClwQuizView } from './components/ClwQuizView';
 import { ClwCertificateView } from './components/ClwCertificateView';
 import { AdminPanel } from './components/AdminPanel';
 import { IntegrityPledge } from './components/IntegrityPledge';
+import { LiveQuizView } from './components/LiveQuizView';
 import { ShareModal } from './components/ShareModal';
 import { DriveModal } from './components/DriveModal';
 import { soundEffects } from './utils/audio';
@@ -22,11 +23,12 @@ import {
   CheckCircle2,
   Share2,
   QrCode,
-  HardDrive
+  HardDrive,
+  Zap
 } from 'lucide-react';
 
 export default function App() {
-  const [currentPage, setCurrentPage] = useState<'home' | 'guidelines' | 'schedule' | 'register' | 'quiz' | 'certificate' | 'admin' | 'pledge'>('home');
+  const [currentPage, setCurrentPage] = useState<'home' | 'live' | 'guidelines' | 'schedule' | 'register' | 'quiz' | 'certificate' | 'admin' | 'pledge'>('home');
   const [homeData, setHomeData] = useState<PublicHomeData | null>(null);
   const [loadingHome, setLoadingHome] = useState(true);
   const [isMuted, setIsMuted] = useState<boolean>(() => soundEffects.getMuted());
@@ -77,6 +79,8 @@ export default function App() {
         setCurrentPage('guidelines');
       } else if (targetPage === 'schedule') {
         setCurrentPage('schedule');
+      } else if (targetPage === 'live') {
+        setCurrentPage('live');
       } else if (targetPage === 'pledge') {
         setCurrentPage('pledge');
       }
@@ -301,6 +305,18 @@ export default function App() {
             Home
           </button>
           <button
+            onClick={() => navigateTo('live')}
+            className={`px-3.5 py-1.5 rounded-md whitespace-nowrap transition-all flex items-center gap-1.5 font-bold ${
+              currentPage === 'live'
+                ? 'bg-amber-400 text-slate-950 shadow-md ring-2 ring-white/50'
+                : 'bg-rose-600 hover:bg-rose-500 text-white shadow-xs'
+            }`}
+          >
+            <span className="w-2 h-2 rounded-full bg-white animate-ping" />
+            <Zap className="w-3.5 h-3.5 text-amber-300" />
+            <span>LIVE QUIZ</span>
+          </button>
+          <button
             onClick={() => navigateTo('guidelines')}
             className={`px-3 py-1.5 rounded-md whitespace-nowrap transition-colors ${
               currentPage === 'guidelines' ? 'bg-white text-[#071a3a] shadow-xs' : 'text-white/80 hover:text-white'
@@ -349,6 +365,18 @@ export default function App() {
           <AdminPanel
             onClose={() => navigateTo('home')}
             onSettingsUpdated={loadHomeData}
+          />
+        )}
+
+        {/* --- PAGE: ONLINE LIVE QUIZ --- */}
+        {currentPage === 'live' && (
+          <LiveQuizView
+            onViewCertificate={(cert) => {
+              setActiveCert(cert);
+              setCurrentPage('certificate');
+            }}
+            onHome={() => navigateTo('home')}
+            departmentsList={departmentsList}
           />
         )}
 
@@ -641,13 +669,13 @@ export default function App() {
                   VIGILANCE AWARENESS WEEK 2026
                 </div>
                 <div className="text-xl sm:text-2xl text-amber-100 font-serif italic mb-2">
-                  सत्यनिष्ठा से समृद्धि · Probity for Prosperity
+                  सत्यनिष्ठा की संस्कृति से राष्ट्र की समृद्धि · Culture of Integrity for Nation's Prosperity
                 </div>
                 <h2 className="text-3xl sm:text-5xl font-serif font-extrabold leading-tight tracking-tight mb-4">
                   Online Quiz Competition
                 </h2>
                 <div className="inline-block px-4 py-1.5 bg-white/15 border border-white/25 rounded-full text-xs font-semibold mb-5">
-                  Theme: Probity for Prosperity · 26 Oct – 1 Nov 2026
+                  Official CVC Slogan: Culture of Integrity for Nation's Prosperity · VAW 2026
                 </div>
                 <p className="text-xs sm:text-sm text-slate-200 leading-relaxed mb-8 max-w-2xl">
                   Organised by the Vigilance Department, Chittaranjan Locomotive Works, Chittaranjan, under Shri {cvoName}, {cvoDesig}. All employees and officers are encouraged to participate.
@@ -655,10 +683,26 @@ export default function App() {
 
                 <div className="flex flex-wrap items-center gap-3">
                   <button
-                    onClick={() => navigateTo('register')}
-                    className="px-6 py-3 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 text-xs sm:text-sm font-bold rounded-xl shadow-md transition-all flex items-center gap-2"
+                    onClick={() => navigateTo('live')}
+                    className="px-6 py-3.5 bg-gradient-to-r from-rose-600 via-rose-500 to-amber-500 hover:from-rose-500 hover:to-amber-400 text-white text-xs sm:text-sm font-extrabold rounded-xl shadow-lg shadow-rose-600/40 transition-all flex items-center gap-2 cursor-pointer transform hover:scale-102"
                   >
-                    <span>Begin Registration</span>
+                    <span className="w-2.5 h-2.5 rounded-full bg-white animate-ping" />
+                    <Zap className="w-4 h-4 text-amber-200" />
+                    <span>Join Online Live Quiz</span>
+                  </button>
+
+                  <button
+                    onClick={() => navigateTo('pledge')}
+                    className="px-5 py-3 bg-white/15 hover:bg-white/25 border border-white/30 text-white text-xs sm:text-sm font-bold rounded-xl transition-colors cursor-pointer"
+                  >
+                    Take Integrity Pledge
+                  </button>
+
+                  <button
+                    onClick={() => navigateTo('register')}
+                    className="px-5 py-3 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 text-xs sm:text-sm font-bold rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer"
+                  >
+                    <span>Self-Paced Registration</span>
                     <ArrowRight className="w-4 h-4" />
                   </button>
 

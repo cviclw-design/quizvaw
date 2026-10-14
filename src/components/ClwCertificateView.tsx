@@ -137,7 +137,8 @@ export const ClwCertificateView: React.FC<ClwCertificateViewProps> = ({ cert, on
 
         ctx.fillStyle = '#8a6a12';
         ctx.font = '700 22px Outfit, sans-serif';
-        ctx.fillText('सत्यनिष्ठा से समृद्धि  ·  PROBITY FOR PROSPERITY', 1000, 532);
+        const sloganText = `${cert.slogan_hindi || 'सत्यनिष्ठा की संस्कृति से राष्ट्र की समृद्धि'}   ·   ${cert.slogan_english || "Culture of Integrity for Nation's Prosperity"}`;
+        ctx.fillText(sloganText, 1000, 532);
 
         // Body text 1
         ctx.fillStyle = '#334455';
@@ -360,7 +361,7 @@ export const ClwCertificateView: React.FC<ClwCertificateViewProps> = ({ cert, on
             className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-blue-950 hover:bg-blue-900 text-white text-xs font-bold rounded-lg shadow-xs transition-colors"
           >
             <Printer className="w-3.5 h-3.5" />
-            <span>Print</span>
+            <span>Print (Landscape PDF)</span>
           </button>
 
           <button
@@ -368,7 +369,7 @@ export const ClwCertificateView: React.FC<ClwCertificateViewProps> = ({ cert, on
             className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold rounded-lg shadow-xs transition-colors"
           >
             <Download className="w-3.5 h-3.5" />
-            <span>Download PNG</span>
+            <span>Download PNG (Landscape)</span>
           </button>
 
           {/* Save to Google Drive Button */}
@@ -450,19 +451,19 @@ export const ClwCertificateView: React.FC<ClwCertificateViewProps> = ({ cert, on
       )}
 
       {/* HTML / Printable Certificate Frame */}
-      <article className="certificate-print-area relative bg-[#fffdf8] border-8 border-[#071a3a] rounded-2xl p-6 sm:p-10 shadow-lg text-slate-900 overflow-hidden">
+      <article className="certificate-print-area relative bg-[#fffdf8] border-8 border-[#071a3a] rounded-2xl p-6 sm:p-10 shadow-lg text-slate-900 overflow-hidden w-full aspect-[1.414/1] flex flex-col justify-between">
         {/* Inner Gold Border */}
-        <div className="border-4 border-[#d4a017] rounded-xl p-6 sm:p-8 text-center relative bg-gradient-to-b from-white/80 to-amber-50/20">
+        <div className="border-4 border-[#d4a017] rounded-xl p-6 sm:p-8 text-center relative bg-gradient-to-b from-white/90 via-amber-50/15 to-amber-50/30 flex-1 flex flex-col justify-between">
           
           {/* Top Indian Tricolor Stripe */}
-          <div className="absolute top-2 left-6 right-6 h-2 rounded-full overflow-hidden flex">
+          <div className="absolute top-2 left-6 right-6 h-2 rounded-full overflow-hidden flex shadow-xs">
             <div className="flex-1 bg-[#ff8a1e]" />
             <div className="flex-1 bg-white" />
             <div className="flex-1 bg-[#128a45]" />
           </div>
 
           {/* Header with Emblem */}
-          <div className="flex items-center justify-center gap-4 text-left pt-4 mb-4">
+          <div className="flex items-center justify-center gap-4 text-left pt-4 mb-2">
             <img
               src={cert.logo_url || 'https://raw.githubusercontent.com/swrvaw/swrvaw.github.io/gh-pages/static/media/logo.8b9ced028d0a93767ec0.png'}
               alt="Indian Railways Emblem"
@@ -482,21 +483,21 @@ export const ClwCertificateView: React.FC<ClwCertificateViewProps> = ({ cert, on
           </div>
 
           {/* VAW Ribbon */}
-          <div className="my-3">
+          <div className="my-2">
             <span className="inline-block px-5 py-1.5 bg-[#071a3a] text-white rounded-full text-xs font-bold tracking-widest uppercase shadow-xs">
               VIGILANCE AWARENESS WEEK 2026
             </span>
           </div>
 
           {/* Certificate Title */}
-          <h2 className="text-2xl sm:text-4xl font-serif font-bold text-[#071a3a] mt-2 mb-1">
+          <h2 className="text-2xl sm:text-4xl font-serif font-bold text-[#071a3a] mt-1 mb-0.5">
             Certificate of Participation
           </h2>
-          <div className="text-xs sm:text-sm text-[#8a6a12] font-bold tracking-wider mb-4">
-            सत्यनिष्ठा से समृद्धि · PROBITY FOR PROSPERITY
+          <div className="text-xs sm:text-sm text-[#8a6a12] font-bold tracking-wider mb-2">
+            {cert.slogan_hindi || 'सत्यनिष्ठा की संस्कृति से राष्ट्र की समृद्धि'} · {cert.slogan_english || "Culture of Integrity for Nation's Prosperity"}
           </div>
 
-          <p className="text-xs sm:text-sm text-slate-600 italic mb-2">
+          <p className="text-xs sm:text-sm text-slate-600 italic mb-1">
             This is to certify that
           </p>
 

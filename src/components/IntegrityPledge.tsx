@@ -111,6 +111,9 @@ export const IntegrityPledge: React.FC = () => {
               <div className="text-xs text-slate-500 mt-0.5">
                 Central Vigilance Commission · Vigilance Awareness Week 2026
               </div>
+              <div className="text-xs font-semibold text-amber-900 mt-0.5">
+                सत्यनिष्ठा की संस्कृति से राष्ट्र की समृद्धि · Culture of Integrity for Nation's Prosperity
+              </div>
             </div>
           </div>
 

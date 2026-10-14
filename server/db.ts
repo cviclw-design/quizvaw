@@ -73,6 +73,7 @@ export interface SystemSettings {
   logo_url: string;
   quiz_seconds: number;
   quiz_count: number;
+  enforce_schedule: boolean;
   updated_at: string;
 }
 
@@ -362,12 +363,12 @@ class Database {
   private createInitialSchema(): DatabaseSchema {
     const now = new Date().toISOString().replace('T', ' ').slice(0, 19);
 
-    // Initial schedules
+    // Initial schedules - default wide open so no participant is blocked
     const schedules: ScheduleItem[] = DEPARTMENTS.map((dept, idx) => ({
       id: idx + 1,
       department: dept,
       starts_at: '2024-01-01 00:00:00',
-      ends_at: '2027-12-31 23:59:00',
+      ends_at: '2035-12-31 23:59:59',
       updated_at: now
     }));
 
@@ -407,6 +408,7 @@ class Database {
         logo_url: 'https://raw.githubusercontent.com/swrvaw/swrvaw.github.io/gh-pages/static/media/logo.8b9ced028d0a93767ec0.png',
         quiz_seconds: 45,
         quiz_count: 20,
+        enforce_schedule: false,
         updated_at: now
       },
       questions,
