@@ -1,7 +1,8 @@
 import express from 'express';
 import { createServer as createViteServer } from 'vite';
-import { apiRouter } from './server/routes';
+import { apiRouter } from './server/routes.ts';
 import path from 'path';
+import fs from 'fs';
 
 async function startServer() {
   const app = express();
@@ -12,22 +13,39 @@ async function startServer() {
   app.use(express.json({ limit: '15mb' }));
   app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 
+  // CORS middleware allowing public participant access across all domains
+  app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, x-admin-token');
+    if (req.method === 'OPTIONS') {
+      res.sendStatus(200);
+      return;
+    }
+    next();
+  });
+
   // Mount API router under /api
   app.use('/api', apiRouter);
 
+  const distPath = path.resolve(process.cwd(), 'dist');
+  const distIndex = path.join(distPath, 'index.html');
+  const hasDist = fs.existsSync(distIndex);
+
   // Serve static assets or vite middlewares
-  if (!isProd) {
+  if (isProd && hasDist) {
+    app.use(express.static(distPath));
+    app.get('*', (req, res, next) => {
+      if (req.path.startsWith('/api')) return next();
+      res.sendFile(distIndex);
+    });
+  } else {
+    // In dev mode or when dist isn't available, Vite middleware handles all modules and HMR/dev serving
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
     });
     app.use(vite.middlewares);
-  } else {
-    const distPath = path.resolve(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (_req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
   }
 
   app.listen(PORT, '0.0.0.0', () => {

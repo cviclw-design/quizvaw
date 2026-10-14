@@ -5,6 +5,7 @@ import { ClwCertificateView } from './components/ClwCertificateView';
 import { AdminPanel } from './components/AdminPanel';
 import { IntegrityPledge } from './components/IntegrityPledge';
 import { ShareModal } from './components/ShareModal';
+import { DriveModal } from './components/DriveModal';
 import { soundEffects } from './utils/audio';
 import {
   ShieldCheck,
@@ -20,7 +21,8 @@ import {
   Search,
   CheckCircle2,
   Share2,
-  QrCode
+  QrCode,
+  HardDrive
 } from 'lucide-react';
 
 export default function App() {
@@ -29,6 +31,7 @@ export default function App() {
   const [loadingHome, setLoadingHome] = useState(true);
   const [isMuted, setIsMuted] = useState<boolean>(() => soundEffects.getMuted());
   const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [driveModalOpen, setDriveModalOpen] = useState(false);
 
   // Registration Form State
   const [regName, setRegName] = useState('');
@@ -252,6 +255,18 @@ export default function App() {
             >
               <Share2 className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Share Link &amp; QR</span>
+            </button>
+
+            <button
+              onClick={() => {
+                soundEffects.playClick();
+                setDriveModalOpen(true);
+              }}
+              className="px-3 py-1.5 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1.5 shadow-sm transition-all"
+              title="Google Drive Cloud Storage"
+            >
+              <HardDrive className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Google Drive</span>
             </button>
 
             <button
@@ -821,6 +836,12 @@ export default function App() {
       <ShareModal
         isOpen={shareModalOpen}
         onClose={() => setShareModalOpen(false)}
+      />
+
+      {/* Google Drive Cloud Storage Modal */}
+      <DriveModal
+        isOpen={driveModalOpen}
+        onClose={() => setDriveModalOpen(false)}
       />
     </div>
   );

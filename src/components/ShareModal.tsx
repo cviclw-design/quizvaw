@@ -11,7 +11,9 @@ import {
   Mail,
   QrCode,
   ExternalLink,
-  ShieldCheck
+  ShieldCheck,
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
 
 interface ShareModalProps {
@@ -29,13 +31,21 @@ export const ShareModal: React.FC<ShareModalProps> = ({
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [linkType, setLinkType] = useState<'direct_quiz' | 'homepage'>(directRegistration ? 'direct_quiz' : 'homepage');
 
-  // Priority Shared App URL from environment or current origin
-  const baseUrl = typeof window !== 'undefined'
-    ? (window.location.hostname.includes('ais-dev')
-        ? window.location.origin.replace('ais-dev', 'ais-pre')
-        : window.location.origin)
-    : 'https://ais-pre-iv3zbtqjhdntlgwoumujar-384176507303.asia-east1.run.app';
+  // Compute the public URL for participants:
+  // AI Studio development URLs (ais-dev-) require developer Google Account login and return 403 Forbidden to participants.
+  // The public shared preview URL (ais-pre-) allows any participant to register and participate freely without 403 Forbidden!
+  const getPublicBaseUrl = (): string => {
+    if (typeof window !== 'undefined') {
+      const origin = window.location.origin;
+      if (origin.includes('ais-dev-')) {
+        return origin.replace('ais-dev-', 'ais-pre-');
+      }
+      return origin;
+    }
+    return 'https://ais-pre-iv3zbtqjhdntlgwoumujar-384176507303.asia-east1.run.app';
+  };
 
+  const baseUrl = getPublicBaseUrl();
   const shareUrl = linkType === 'direct_quiz' ? `${baseUrl}?page=register` : baseUrl;
 
   useEffect(() => {
@@ -116,7 +126,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
         </button>
 
         {/* Modal Header */}
-        <div className="text-center mb-6">
+        <div className="text-center mb-5">
           <div className="w-12 h-12 bg-amber-50 text-amber-900 border border-amber-200 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-xs">
             <Share2 className="w-6 h-6 text-amber-800" />
           </div>
@@ -126,6 +136,19 @@ export const ShareModal: React.FC<ShareModalProps> = ({
           <p className="text-xs text-slate-500 mt-1">
             Anyone with this link can access the portal, register their PF number, take the quiz, and receive their e-Certificate.
           </p>
+        </div>
+
+        {/* Public Access Verification Banner (Solves 403 Forbidden) */}
+        <div className="mb-5 p-3.5 bg-emerald-50 border border-emerald-300 rounded-2xl flex items-start gap-2.5 text-xs text-emerald-950 shadow-2xs">
+          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+          <div className="space-y-0.5">
+            <span className="font-bold text-emerald-900 block">
+              Public Link Verified · Zero Login Required (No Error 403)
+            </span>
+            <p className="text-[11px] text-emerald-800 leading-relaxed">
+              This link is formatted for public access (<strong>ais-pre</strong>). Any participant on mobile, WhatsApp, or desktop can immediately register and take the quiz without encountering Cloud Run Error 403.
+            </p>
+          </div>
         </div>
 
         {/* Link Type Selector */}

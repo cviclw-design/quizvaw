@@ -1,7 +1,20 @@
 import React, { useRef, useState } from 'react';
 import { CertificateData } from '../services/api';
-import { Printer, Download, ArrowLeft, CheckCircle2, Share2 } from 'lucide-react';
+import {
+  Printer,
+  Download,
+  ArrowLeft,
+  CheckCircle2,
+  Share2,
+  HardDrive,
+  ExternalLink,
+  RefreshCw,
+  AlertCircle
+} from 'lucide-react';
 import { ShareModal } from './ShareModal';
+import { DriveModal } from './DriveModal';
+import { googleSignIn, getAccessToken } from '../services/googleAuth';
+import { DriveService } from '../services/driveService';
 import { soundEffects } from '../utils/audio';
 
 interface ClwCertificateViewProps {
@@ -12,209 +25,276 @@ interface ClwCertificateViewProps {
 export const ClwCertificateView: React.FC<ClwCertificateViewProps> = ({ cert, onHome }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [shareOpen, setShareOpen] = useState(false);
+  const [driveModalOpen, setDriveModalOpen] = useState(false);
+  const [savingToDrive, setSavingToDrive] = useState(false);
+  const [driveSavedUrl, setDriveSavedUrl] = useState<string | null>(null);
+  const [driveError, setDriveError] = useState<string | null>(null);
 
   const handlePrint = () => {
     soundEffects.playClick();
     window.print();
   };
 
-  const handleDownloadPng = () => {
-    soundEffects.playClick();
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+  /**
+   * High-resolution 2000px Canvas painter
+   */
+  const paintCanvas = (): Promise<HTMLCanvasElement> => {
+    return new Promise((resolve, reject) => {
+      const canvas = canvasRef.current;
+      if (!canvas) {
+        reject(new Error('Canvas element not available'));
+        return;
+      }
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        reject(new Error('2D Context not available'));
+        return;
+      }
 
-    const W = canvas.width; // 2000
-    const H = canvas.height; // 1414
-    ctx.clearRect(0, 0, W, H);
+      const W = canvas.width; // 2000
+      const H = canvas.height; // 1414
+      ctx.clearRect(0, 0, W, H);
 
-    // Parchment cream gradient background
-    const bgGrad = ctx.createLinearGradient(0, 0, W, H);
-    bgGrad.addColorStop(0, '#fffdf8');
-    bgGrad.addColorStop(1, '#fff5e6');
-    ctx.fillStyle = bgGrad;
-    ctx.fillRect(0, 0, W, H);
+      // Parchment cream gradient background
+      const bgGrad = ctx.createLinearGradient(0, 0, W, H);
+      bgGrad.addColorStop(0, '#fffdf8');
+      bgGrad.addColorStop(1, '#fff5e6');
+      ctx.fillStyle = bgGrad;
+      ctx.fillRect(0, 0, W, H);
 
-    // Double borders: Navy and Gold
-    ctx.strokeStyle = '#071a3a';
-    ctx.lineWidth = 26;
-    ctx.strokeRect(34, 34, W - 68, H - 68);
+      // Double borders: Navy and Gold
+      ctx.strokeStyle = '#071a3a';
+      ctx.lineWidth = 26;
+      ctx.strokeRect(34, 34, W - 68, H - 68);
 
-    ctx.strokeStyle = '#d4a017';
-    ctx.lineWidth = 8;
-    ctx.strokeRect(60, 60, W - 120, H - 120);
+      ctx.strokeStyle = '#d4a017';
+      ctx.lineWidth = 8;
+      ctx.strokeRect(60, 60, W - 120, H - 120);
 
-    // Indian Tricolor Stripe Accent at top inner
-    ctx.fillStyle = '#ff8a1e';
-    ctx.fillRect(76, 76, W - 152, 12);
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(76, 88, W - 152, 8);
-    ctx.fillStyle = '#128a45';
-    ctx.fillRect(76, 96, W - 152, 12);
+      // Indian Tricolor Stripe Accent at top inner
+      ctx.fillStyle = '#ff8a1e';
+      ctx.fillRect(76, 76, W - 152, 12);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(76, 88, W - 152, 8);
+      ctx.fillStyle = '#128a45';
+      ctx.fillRect(76, 96, W - 152, 12);
 
-    // Draw Indian Railways Logo
-    const logoImg = new Image();
-    logoImg.crossOrigin = 'anonymous';
-    logoImg.onload = () => finishCanvasPaint(logoImg);
-    logoImg.onerror = () => finishCanvasPaint(null);
-    logoImg.src = cert.logo_url || 'https://raw.githubusercontent.com/swrvaw/swrvaw.github.io/gh-pages/static/media/logo.8b9ced028d0a93767ec0.png';
+      // Draw Indian Railways Logo
+      const logoImg = new Image();
+      logoImg.crossOrigin = 'anonymous';
+      logoImg.onload = () => finishCanvasPaint(logoImg);
+      logoImg.onerror = () => finishCanvasPaint(null);
+      logoImg.src = cert.logo_url || 'https://raw.githubusercontent.com/swrvaw/swrvaw.github.io/gh-pages/static/media/logo.8b9ced028d0a93767ec0.png';
 
-    function finishCanvasPaint(logo: HTMLImageElement | null) {
-      if (!ctx) return;
-      if (logo) {
+      function finishCanvasPaint(logo: HTMLImageElement | null) {
+        if (!ctx) return;
+        if (logo) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(240, 245, 75, 0, Math.PI * 2);
+          ctx.fillStyle = '#ffffff';
+          ctx.fill();
+          ctx.clip();
+          ctx.drawImage(logo, 165, 170, 150, 150);
+          ctx.restore();
+
+          ctx.strokeStyle = '#d4a017';
+          ctx.lineWidth = 5;
+          ctx.beginPath();
+          ctx.arc(240, 245, 78, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+
+        // Header Texts
+        ctx.fillStyle = '#8a6a12';
+        ctx.font = '800 26px Outfit, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText('INDIAN RAILWAYS', 360, 210);
+
+        ctx.fillStyle = '#071a3a';
+        ctx.font = '800 48px Georgia, serif';
+        ctx.fillText('Chittaranjan Locomotive Works', 360, 268);
+
+        ctx.font = '600 26px Outfit, sans-serif';
+        ctx.fillStyle = '#445566';
+        ctx.fillText('Vigilance Department  ·  Chittaranjan', 360, 314);
+
+        // Ribbon
+        ctx.beginPath();
+        roundRect(ctx, 620, 350, 760, 52, 26);
+        ctx.fillStyle = '#071a3a';
+        ctx.fill();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '800 22px Outfit, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('VIGILANCE AWARENESS WEEK 2026', 1000, 384);
+
+        // Certificate Title
+        ctx.fillStyle = '#071a3a';
+        ctx.font = '800 62px Georgia, serif';
+        ctx.fillText('Certificate of Participation', 1000, 485);
+
+        ctx.fillStyle = '#8a6a12';
+        ctx.font = '700 22px Outfit, sans-serif';
+        ctx.fillText('सत्यनिष्ठा से समृद्धि  ·  PROBITY FOR PROSPERITY', 1000, 532);
+
+        // Body text 1
+        ctx.fillStyle = '#334455';
+        ctx.font = '500 28px Outfit, sans-serif';
+        ctx.fillText('This is to certify that', 1000, 605);
+
+        // Participant Name
+        ctx.fillStyle = '#9a3412';
+        ctx.font = 'italic 62px Georgia, serif';
+        ctx.fillText(cert.name, 1000, 690);
+
+        // Meta info (PF, Dept, Unit)
+        ctx.fillStyle = '#071a3a';
+        ctx.font = '700 24px Outfit, sans-serif';
+        ctx.fillText(`PF ${cert.pf}   ·   ${cert.designation}   ·   ${cert.department}   ·   ${cert.unit}`, 1000, 750);
+
+        // Participation Statement
+        ctx.fillStyle = '#334455';
+        ctx.font = '500 24px Outfit, sans-serif';
+        const bodyText = 'has participated in the Online Quiz Competition organised by the Vigilance Department, Chittaranjan Locomotive Works, during Vigilance Awareness Week 2026.';
+        wrapText(ctx, bodyText, 1000, 805, 1400, 34);
+
+        // Score Box
+        ctx.beginPath();
+        roundRect(ctx, 360, 940, 1280, 115, 20);
+        ctx.fillStyle = '#071a3a';
+        ctx.fill();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '700 24px Outfit, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText(`Score:  ${cert.score} / ${cert.max}`, 400, 1005);
+        ctx.fillText(`Participation ID:  ${cert.certificate_no}`, 760, 1005);
+        ctx.fillText(`Date:  ${new Date(cert.submitted_at || Date.now()).toLocaleDateString('en-IN')}`, 1340, 1005);
+
+        // Official Stamp Seal on left
         ctx.save();
         ctx.beginPath();
-        ctx.arc(240, 245, 75, 0, Math.PI * 2);
-        ctx.fillStyle = '#ffffff';
-        ctx.fill();
-        ctx.clip();
-        ctx.drawImage(logo, 165, 170, 150, 150);
+        ctx.arc(280, 1220, 68, 0, Math.PI * 2);
+        ctx.strokeStyle = '#d4a017';
+        ctx.setLineDash([6, 4]);
+        ctx.lineWidth = 3.5;
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = '#8a6a12';
+        ctx.font = '800 15px Outfit, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('CLW', 280, 1210);
+        ctx.fillText('VIGILANCE', 280, 1230);
+        ctx.fillText('CHITTARANJAN', 280, 1250);
         ctx.restore();
 
-        ctx.strokeStyle = '#d4a017';
-        ctx.lineWidth = 5;
-        ctx.beginPath();
-        ctx.arc(240, 245, 78, 0, Math.PI * 2);
-        ctx.stroke();
-      }
-
-      // Header Texts
-      ctx.fillStyle = '#8a6a12';
-      ctx.font = '800 26px Outfit, sans-serif';
-      ctx.textAlign = 'left';
-      ctx.fillText('INDIAN RAILWAYS', 360, 210);
-
-      ctx.fillStyle = '#071a3a';
-      ctx.font = '800 48px Georgia, serif';
-      ctx.fillText('Chittaranjan Locomotive Works', 360, 268);
-
-      ctx.font = '600 26px Outfit, sans-serif';
-      ctx.fillStyle = '#445566';
-      ctx.fillText('Vigilance Department  ·  Chittaranjan', 360, 314);
-
-      // Ribbon
-      ctx.beginPath();
-      roundRect(ctx, 620, 350, 760, 52, 26);
-      ctx.fillStyle = '#071a3a';
-      ctx.fill();
-
-      ctx.fillStyle = '#ffffff';
-      ctx.font = '800 22px Outfit, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('VIGILANCE AWARENESS WEEK 2026', 1000, 384);
-
-      // Certificate Title
-      ctx.fillStyle = '#071a3a';
-      ctx.font = '800 62px Georgia, serif';
-      ctx.fillText('Certificate of Participation', 1000, 485);
-
-      ctx.fillStyle = '#8a6a12';
-      ctx.font = '700 22px Outfit, sans-serif';
-      ctx.fillText('सत्यनिष्ठा से समृद्धि  ·  PROBITY FOR PROSPERITY', 1000, 532);
-
-      // Body text 1
-      ctx.fillStyle = '#334455';
-      ctx.font = '500 28px Outfit, sans-serif';
-      ctx.fillText('This is to certify that', 1000, 605);
-
-      // Participant Name
-      ctx.fillStyle = '#9a3412';
-      ctx.font = 'italic 62px Georgia, serif';
-      ctx.fillText(cert.name, 1000, 690);
-
-      // Meta info (PF, Dept, Unit)
-      ctx.fillStyle = '#071a3a';
-      ctx.font = '700 24px Outfit, sans-serif';
-      ctx.fillText(`PF ${cert.pf}   ·   ${cert.designation}   ·   ${cert.department}   ·   ${cert.unit}`, 1000, 750);
-
-      // Participation Statement
-      ctx.fillStyle = '#334455';
-      ctx.font = '500 24px Outfit, sans-serif';
-      const bodyText = 'has participated in the Online Quiz Competition organised by the Vigilance Department, Chittaranjan Locomotive Works, during Vigilance Awareness Week 2026.';
-      wrapText(ctx, bodyText, 1000, 805, 1400, 34);
-
-      // Score Box
-      ctx.beginPath();
-      roundRect(ctx, 360, 940, 1280, 115, 20);
-      ctx.fillStyle = '#071a3a';
-      ctx.fill();
-
-      ctx.fillStyle = '#ffffff';
-      ctx.font = '700 24px Outfit, sans-serif';
-      ctx.textAlign = 'left';
-      ctx.fillText(`Score:  ${cert.score} / ${cert.max}`, 400, 1005);
-      ctx.fillText(`Participation ID:  ${cert.certificate_no}`, 760, 1005);
-      ctx.fillText(`Date:  ${new Date(cert.submitted_at || Date.now()).toLocaleDateString('en-IN')}`, 1340, 1005);
-
-      // Official Stamp Seal on left
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(280, 1220, 68, 0, Math.PI * 2);
-      ctx.strokeStyle = '#d4a017';
-      ctx.setLineDash([6, 4]);
-      ctx.lineWidth = 3.5;
-      ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.fillStyle = '#8a6a12';
-      ctx.font = '800 15px Outfit, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('CLW', 280, 1210);
-      ctx.fillText('VIGILANCE', 280, 1230);
-      ctx.fillText('CHITTARANJAN', 280, 1250);
-      ctx.restore();
-
-      // Right: Signature Block (Using uploaded photo if available)
-      if (cert.signature_photo) {
-        const sigImg = new Image();
-        sigImg.crossOrigin = 'anonymous';
-        sigImg.onload = () => {
-          ctx.drawImage(sigImg, 1340, 1100, 240, 85);
-          drawSignText();
-        };
-        sigImg.onerror = () => {
+        // Right: Signature Block (Using uploaded photo if available)
+        if (cert.signature_photo) {
+          const sigImg = new Image();
+          sigImg.crossOrigin = 'anonymous';
+          sigImg.onload = () => {
+            ctx.drawImage(sigImg, 1340, 1100, 240, 85);
+            drawSignText();
+          };
+          sigImg.onerror = () => {
+            drawScriptFallback();
+            drawSignText();
+          };
+          sigImg.src = cert.signature_photo;
+        } else {
           drawScriptFallback();
           drawSignText();
-        };
-        sigImg.src = cert.signature_photo;
-      } else {
-        drawScriptFallback();
-        drawSignText();
+        }
+
+        function drawScriptFallback() {
+          if (!ctx) return;
+          ctx.textAlign = 'center';
+          ctx.fillStyle = '#071a3a';
+          ctx.font = 'italic 48px Georgia, serif';
+          ctx.fillText(cert.cvo_name || 'Sugind Surendran', 1460, 1160);
+        }
+
+        function drawSignText() {
+          if (!ctx || !canvas) return;
+          ctx.strokeStyle = '#d4a017';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(1280, 1195);
+          ctx.lineTo(1640, 1195);
+          ctx.stroke();
+
+          ctx.textAlign = 'center';
+          ctx.fillStyle = '#111827';
+          ctx.font = '700 22px Outfit, sans-serif';
+          ctx.fillText(cert.cvo_name || 'Sugind Surendran', 1460, 1230);
+
+          ctx.fillStyle = '#4b5563';
+          ctx.font = '500 18px Outfit, sans-serif';
+          ctx.fillText(cert.cvo_designation || 'SDGM & Chief Vigilance Officer', 1460, 1260);
+          ctx.fillText(cert.cvo_organization || 'Chittaranjan Locomotive Works, Chittaranjan', 1460, 1288);
+
+          resolve(canvas);
+        }
+      }
+    });
+  };
+
+  const handleDownloadPng = async () => {
+    soundEffects.playClick();
+    try {
+      const canvas = await paintCanvas();
+      const a = document.createElement('a');
+      a.href = canvas.toDataURL('image/png');
+      a.download = `${cert.certificate_no}-${cert.pf}.png`;
+      a.click();
+    } catch (err) {
+      console.error('Download PNG failed', err);
+    }
+  };
+
+  const handleSaveToDrive = async () => {
+    soundEffects.playClick();
+    setSavingToDrive(true);
+    setDriveError(null);
+    setDriveSavedUrl(null);
+
+    try {
+      // 1. Ensure token
+      let token = await getAccessToken();
+      if (!token) {
+        const authResult = await googleSignIn();
+        if (!authResult) throw new Error('Google Sign-In was cancelled');
+        token = authResult.accessToken;
       }
 
-      function drawScriptFallback() {
-        if (!ctx) return;
-        ctx.textAlign = 'center';
-        ctx.fillStyle = '#071a3a';
-        ctx.font = 'italic 48px Georgia, serif';
-        ctx.fillText(cert.cvo_name || 'Sugind Surendran', 1460, 1160);
-      }
+      // 2. Render canvas and convert to Blob
+      const canvas = await paintCanvas();
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob(b => {
+          if (b) resolve(b);
+          else reject(new Error('Failed to create image blob'));
+        }, 'image/png');
+      });
 
-      function drawSignText() {
-        if (!ctx || !canvas) return;
-        ctx.strokeStyle = '#d4a017';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(1280, 1195);
-        ctx.lineTo(1640, 1195);
-        ctx.stroke();
+      // 3. Upload to Google Drive
+      const uploaded = await DriveService.saveCertificateToDrive(
+        token,
+        cert.certificate_no,
+        cert.pf,
+        cert.name,
+        blob
+      );
 
-        ctx.textAlign = 'center';
-        ctx.fillStyle = '#111827';
-        ctx.font = '700 22px Outfit, sans-serif';
-        ctx.fillText(cert.cvo_name || 'Sugind Surendran', 1460, 1230);
-
-        ctx.fillStyle = '#4b5563';
-        ctx.font = '500 18px Outfit, sans-serif';
-        ctx.fillText(cert.cvo_designation || 'SDGM & Chief Vigilance Officer', 1460, 1260);
-        ctx.fillText(cert.cvo_organization || 'Chittaranjan Locomotive Works, Chittaranjan', 1460, 1288);
-
-        // Download trigger
-        const a = document.createElement('a');
-        a.href = canvas.toDataURL('image/png');
-        a.download = `${cert.certificate_no}-${cert.pf}.png`;
-        a.click();
-      }
+      soundEffects.playCorrect();
+      setDriveSavedUrl(uploaded.webViewLink || 'https://drive.google.com');
+    } catch (err: unknown) {
+      console.error('Save to Google Drive failed:', err);
+      soundEffects.playIncorrect();
+      setDriveError((err as Error).message || 'Failed to save certificate to Google Drive');
+    } finally {
+      setSavingToDrive(false);
     }
   };
 
@@ -264,11 +344,11 @@ export const ClwCertificateView: React.FC<ClwCertificateViewProps> = ({ cert, on
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {onHome && (
             <button
               onClick={onHome}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
               <span>Home</span>
@@ -277,18 +357,38 @@ export const ClwCertificateView: React.FC<ClwCertificateViewProps> = ({ cert, on
 
           <button
             onClick={handlePrint}
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-950 hover:bg-blue-900 text-white text-xs font-bold rounded-lg shadow-xs transition-colors"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-blue-950 hover:bg-blue-900 text-white text-xs font-bold rounded-lg shadow-xs transition-colors"
           >
             <Printer className="w-3.5 h-3.5" />
-            <span>Print Certificate</span>
+            <span>Print</span>
           </button>
 
           <button
             onClick={handleDownloadPng}
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold rounded-lg shadow-xs transition-colors"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold rounded-lg shadow-xs transition-colors"
           >
             <Download className="w-3.5 h-3.5" />
-            <span>Download PNG (2000px)</span>
+            <span>Download PNG</span>
+          </button>
+
+          {/* Save to Google Drive Button */}
+          <button
+            onClick={handleSaveToDrive}
+            disabled={savingToDrive}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg shadow-xs transition-colors"
+            title="Save certificate directly to Google Drive"
+          >
+            {savingToDrive ? (
+              <>
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                <span>Saving to Drive...</span>
+              </>
+            ) : (
+              <>
+                <HardDrive className="w-3.5 h-3.5" />
+                <span>Save to Google Drive</span>
+              </>
+            )}
           </button>
 
           <button
@@ -303,6 +403,51 @@ export const ClwCertificateView: React.FC<ClwCertificateViewProps> = ({ cert, on
           </button>
         </div>
       </div>
+
+      {/* Google Drive Status Notification */}
+      {driveSavedUrl && (
+        <div className="no-print mb-6 p-4 rounded-xl bg-emerald-50 border border-emerald-300 text-xs text-emerald-950 flex flex-wrap items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+            <div>
+              <strong className="block font-bold">Successfully saved to your Google Drive!</strong>
+              <span>Folder: "CLW Vigilance Awareness Week 2026"</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <a
+              href={driveSavedUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-lg transition-colors"
+            >
+              <span>Open in Google Drive</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+            <button
+              onClick={() => setDriveModalOpen(true)}
+              className="px-3 py-1.5 bg-white border border-emerald-300 text-emerald-900 font-semibold rounded-lg hover:bg-emerald-50 transition-colors"
+            >
+              Browse Files
+            </button>
+          </div>
+        </div>
+      )}
+
+      {driveError && (
+        <div className="no-print mb-6 p-3 rounded-xl bg-rose-50 border border-rose-300 text-xs text-rose-900 flex items-center justify-between gap-2 shadow-xs">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+            <span>{driveError}</span>
+          </div>
+          <button
+            onClick={() => setDriveError(null)}
+            className="text-xs font-bold text-rose-700 underline"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* HTML / Printable Certificate Frame */}
       <article className="certificate-print-area relative bg-[#fffdf8] border-8 border-[#071a3a] rounded-2xl p-6 sm:p-10 shadow-lg text-slate-900 overflow-hidden">
@@ -453,13 +598,25 @@ export const ClwCertificateView: React.FC<ClwCertificateViewProps> = ({ cert, on
       {/* Hidden high-res canvas for 2000px PNG rendering */}
       <canvas ref={canvasRef} width={2000} height={1414} className="hidden" />
 
-      <div className="no-print mt-4 text-center text-xs text-slate-500">
-        Click "Download PNG" for high-resolution certificate or "Print Certificate" to save directly as PDF.
+      <div className="no-print mt-4 text-center text-xs text-slate-500 flex items-center justify-center gap-3">
+        <span>Click "Download PNG" for high-resolution certificate, "Print Certificate" for PDF, or "Save to Google Drive" to backup to your cloud.</span>
+        <button
+          onClick={() => setDriveModalOpen(true)}
+          className="text-blue-900 font-bold hover:underline inline-flex items-center gap-1"
+        >
+          <HardDrive className="w-3.5 h-3.5" />
+          <span>Manage Drive Files</span>
+        </button>
       </div>
 
       <ShareModal
         isOpen={shareOpen}
         onClose={() => setShareOpen(false)}
+      />
+
+      <DriveModal
+        isOpen={driveModalOpen}
+        onClose={() => setDriveModalOpen(false)}
       />
     </div>
   );

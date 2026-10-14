@@ -1,7 +1,7 @@
-import { Router, Request, Response } from 'express';
-import { db, DEPARTMENTS, UNITS, QuestionItem } from './db';
+import express, { type Request, type Response } from 'express';
+import { db, DEPARTMENTS, UNITS, type QuestionItem } from './db.ts';
 
-export const apiRouter = Router();
+export const apiRouter = express.Router();
 
 // Simple in-memory session store for admin tokens
 const activeSessions: Record<string, { adminId: number; username: string; expiresAt: number }> = {};

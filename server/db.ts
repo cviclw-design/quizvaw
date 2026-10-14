@@ -366,8 +366,8 @@ class Database {
     const schedules: ScheduleItem[] = DEPARTMENTS.map((dept, idx) => ({
       id: idx + 1,
       department: dept,
-      starts_at: '2026-09-01 00:00:00',
-      ends_at: '2026-11-16 23:59:00',
+      starts_at: '2024-01-01 00:00:00',
+      ends_at: '2027-12-31 23:59:00',
       updated_at: now
     }));
 

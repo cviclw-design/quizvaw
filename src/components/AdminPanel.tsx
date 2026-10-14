@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { api, AdminQuestionItem, AdminSettingsData } from '../services/api';
 import { soundEffects } from '../utils/audio';
 import { ShareModal } from './ShareModal';
+import { DriveModal } from './DriveModal';
 import {
   ShieldCheck,
   Plus,
@@ -23,7 +24,8 @@ import {
   Sliders,
   Check,
   Building,
-  Share2
+  Share2,
+  HardDrive
 } from 'lucide-react';
 
 interface AdminPanelProps {
@@ -36,6 +38,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, onSettingsUpdat
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'questions' | 'signature' | 'schedule' | 'results' | 'audit' | 'password'>('dashboard');
   const [shareOpen, setShareOpen] = useState(false);
+  const [driveOpen, setDriveOpen] = useState(false);
 
   // Login form state
   const [loginUser, setLoginUser] = useState('admin');
@@ -626,6 +629,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, onSettingsUpdat
             <span>Share Quiz Link &amp; QR</span>
           </button>
 
+          <button
+            onClick={() => {
+              soundEffects.playClick();
+              setDriveOpen(true);
+            }}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-blue-700 hover:bg-blue-800 text-white shadow-xs transition-colors"
+            title="Google Drive Cloud Storage"
+          >
+            <HardDrive className="w-3.5 h-3.5" />
+            <span>Google Drive</span>
+          </button>
+
           {onClose && (
             <button
               onClick={onClose}
@@ -720,6 +735,42 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, onSettingsUpdat
       {/* --- TAB 1: DASHBOARD --- */}
       {activeTab === 'dashboard' && dashboardCounts && (
         <div className="space-y-6">
+          {/* Public Participant URL Callout (Prevents 403 Forbidden) */}
+          <div className="bg-gradient-to-r from-emerald-950 via-[#071a3a] to-blue-950 text-white rounded-2xl p-5 sm:p-6 shadow-md border border-emerald-500/30">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="space-y-1.5 flex-1">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[11px] font-bold border border-emerald-500/30">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Public Participant Access · Zero 403 Errors</span>
+                </div>
+                <h3 className="text-base sm:text-lg font-bold text-white">
+                  Public Participation Link for All Employees (100+ Staff)
+                </h3>
+                <p className="text-xs text-slate-200 max-w-2xl leading-relaxed">
+                  The private development URL (<code>ais-dev-</code>) returns Error 403 to staff members. Use this public link (<code>ais-pre-</code>) so anyone can participate freely on their mobile or PC.
+                </p>
+                <div className="pt-2">
+                  <div className="font-mono text-xs text-amber-200 select-all break-all bg-black/40 px-3 py-2 rounded-lg border border-white/10 flex items-center justify-between gap-2">
+                    <span>https://ais-pre-iv3zbtqjhdntlgwoumujar-384176507303.asia-east1.run.app?page=register</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap md:flex-col gap-2 shrink-0">
+                <button
+                  onClick={() => {
+                    soundEffects.playClick();
+                    setShareOpen(true);
+                  }}
+                  className="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <Share2 className="w-3.5 h-3.5" />
+                  <span>Open Share Modal &amp; QR</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs">
               <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
@@ -775,7 +826,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, onSettingsUpdat
             <h3 className="text-sm font-bold text-slate-900 mb-3">
               Administrator Shortcuts
             </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
               <button
                 onClick={() => {
                   handleTabChange('questions');
@@ -824,6 +875,20 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, onSettingsUpdat
                   <div className="text-[11px] text-slate-600">Get direct link &amp; notice QR</div>
                 </div>
                 <Share2 className="w-5 h-5 text-[#ff8a1e]" />
+              </button>
+
+              <button
+                onClick={() => {
+                  soundEffects.playClick();
+                  setDriveOpen(true);
+                }}
+                className="p-4 rounded-xl border border-blue-300 bg-blue-50/70 hover:bg-blue-100/70 text-left transition-colors flex items-center justify-between shadow-2xs"
+              >
+                <div>
+                  <div className="font-bold text-xs text-blue-950 mb-0.5">Google Drive</div>
+                  <div className="text-[11px] text-slate-600">Sync results &amp; files</div>
+                </div>
+                <HardDrive className="w-5 h-5 text-blue-800" />
               </button>
             </div>
           </div>
@@ -1523,14 +1588,27 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, onSettingsUpdat
               />
             </div>
 
-            <a
-              href="/api/admin/export_results"
-              download
-              className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold rounded-lg shadow-xs transition-colors"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span>Download Results CSV</span>
-            </a>
+            <div className="flex items-center gap-2">
+              <a
+                href="/api/admin/export_results"
+                download
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold rounded-lg shadow-xs transition-colors"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Download CSV</span>
+              </a>
+
+              <button
+                onClick={() => {
+                  soundEffects.playClick();
+                  setDriveOpen(true);
+                }}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold rounded-lg shadow-xs transition-colors"
+              >
+                <HardDrive className="w-3.5 h-3.5" />
+                <span>Sync to Google Drive</span>
+              </button>
+            </div>
           </div>
 
           <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
@@ -1708,6 +1786,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, onSettingsUpdat
       <ShareModal
         isOpen={shareOpen}
         onClose={() => setShareOpen(false)}
+      />
+
+      {/* Google Drive Cloud Storage Modal */}
+      <DriveModal
+        isOpen={driveOpen}
+        onClose={() => setDriveOpen(false)}
       />
     </div>
   );
